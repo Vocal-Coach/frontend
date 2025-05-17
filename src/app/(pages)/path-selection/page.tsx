@@ -1,0 +1,42 @@
+'use client';
+
+import Link from 'next/link';
+import Card from '@/app/components/ui/Card';
+import { Mic, BarChartBig, BookOpen } from 'lucide-react';
+
+export default function PathSelection() {
+  return (
+    <div className="flex flex-col pt-12 px-6">
+      <h2 className="text-3xl font-semibold text-gray-800 mb-10 text-center">
+        How would you like to begin?
+      </h2>
+      
+      <div className="space-y-5 w-full max-w-sm mx-auto">
+        <Link href="/levels">
+          <Card
+            title="Practice Exercises"
+            description="Access targeted exercises to improve your vocal skills."
+            icon={<BarChartBig className="text-purple-600" />}
+            accentColorClass="text-purple-600"
+          />
+        </Link>
+        
+        <Card
+          title="Evaluate My Voice"
+          description="Get a quick analysis of your pitch, tone, and range."
+          icon={<Mic className="text-indigo-600" />}
+          accentColorClass="text-indigo-600"
+          onClick={() => alert("This feature will be available in a future update.")}
+        />
+        
+        <Card
+          title="Learn Vocal Basics"
+          description="Understand fundamental singing techniques and theory."
+          icon={<BookOpen className="text-green-600" />}
+          accentColorClass="text-green-600"
+          onClick={() => alert("This feature will be available in a future update.")}
+        />
+      </div>
+    </div>
+  );
+}
