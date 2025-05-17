@@ -15,51 +15,77 @@ body {
   color: var(--text-primary);
 }
 
-/* Note positions */
-.p4-do { bottom: 20%; }
-.p4-re { bottom: 40%; }
-.p4-mi { bottom: 60%; }
+/* Note vertical positions based on pitch */
+/* Level 1 - 5-Tone Scale - 올바른 방향으로 수정 (높은 음 = 위쪽) */
+.p1-do { bottom: 70%; } /* 가장 낮은 음 = 아래쪽에 위치 */
+.p1-re { bottom: 80%; } /* 중간 음 = 중간에 위치 */
+.p1-mi { bottom: 90%; } /* 가장 높은 음 = 위쪽에 위치 */
 
-.p5-do1 { bottom: 10%; }
-.p5-re  { bottom: 22%; }
-.p5-mi  { bottom: 34%; }
-.p5-fa  { bottom: 46%; }
-.p5-so  { bottom: 58%; }
-.p5-la  { bottom: 70%; }
-.p5-ti  { bottom: 82%; }
-.p5-do2 { bottom: 90%; }
+/* Level 2 - Major Scale - 올바른 방향으로 수정 (도부터 시작하여 높아짐) */
+.p2-do { bottom: 20%; }  /* 낮은 도 */
+.p2-re { bottom: 30%; }
+.p2-mi { bottom: 40%; }
+.p2-fa { bottom: 50%; }
+.p2-so { bottom: 60%; }
+.p2-la { bottom: 70%; }
+.p2-ti { bottom: 80%; }
+.p2-do2 { bottom: 90%; } /* 높은 도 */
 
-/* Note durations */
-.note-duration-short  { width: 50px; }
-.note-duration-medium { width: 80px; }
-.note-duration-long   { width: 120px; }
-
-/* Note positions */
-.note-position-current { left: 25%; transform: translateX(-50%); }
-.note-position-next    { left: 60%; transform: translateX(-50%); }
-.note-position-next-2  { left: 95%; transform: translateX(-50%); }
-
-/* Visual styles */
-.note-rect {
+/* Note styles */
+.note-circle {
   position: absolute;
-  border-radius: 8px;
-  height: 30px;
+  border-radius: 9999px; /* Full rounded for circle */
+  width: 2.5rem;
+  height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
-  padding: 0 8px;
-  white-space: nowrap;
-  transition: left 0.3s linear;
-  box-shadow: 0 2px 5px rgba(79, 70, 229, 0.3);
+  transition: left 0.1s linear; /* 더 빠른 반응을 위해 트랜지션 시간 감소 */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 5;
+  transform: translate(-50%, 0);
 }
 
+/* 세밀한 위치 클래스 (5% 간격) */
+.note-position-0 { left: 100%; }
+.note-position-5 { left: 95%; }
+.note-position-10 { left: 90%; }
+.note-position-15 { left: 85%; }
+.note-position-20 { left: 80%; }
+.note-position-25 { left: 75%; }
+.note-position-30 { left: 70%; }
+.note-position-35 { left: 65%; }
+.note-position-40 { left: 60%; }
+.note-position-45 { left: 55%; }
+.note-position-50 { left: 50%; }
+.note-position-55 { left: 45%; }
+.note-position-60 { left: 40%; }
+.note-position-65 { left: 35%; }
+.note-position-70 { left: 30%; }
+.note-position-75 { left: 25%; }
+.note-position-80 { left: 20%; }
+.note-position-85 { left: 15%; }
+.note-position-90 { left: 10%; }
+.note-position-95 { left: 5%; }
+.note-position-100 { left: 0%; }
+
+/* Legacy position classes (for backward compatibility) */
+.note-position-next-2 { left: 110%; }
+.note-position-next { left: 80%; }
+.note-position-current { left: 30%; }
+.note-position-prev { left: 0%; opacity: 0.5; }
+
+/* Visual styles */
 .pitch-staff {
   position: relative;
   width: 100%;
-  height: 280px;
+  height: 400px;
   margin: 5px 0;
+  overflow: hidden;
+  border: 1px solid rgba(229, 231, 235, 0.3);
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
 .target-line {
@@ -67,15 +93,7 @@ body {
   left: 30%;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 1px; /* Thinner line */
   z-index: 10;
-}
-
-.pitch-path-line {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  stroke-width: 2;
-  fill: none;
-  stroke-dasharray: 4;
+  border-left: 2px dotted rgba(251, 191, 36, 0.7); /* Dotted yellow line */
 }

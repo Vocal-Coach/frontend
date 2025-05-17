@@ -1,0 +1,324 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import { levels } from '@/app/lib/levelsData';
+import PracticePageLayout from '@/app/components/features/practice/PracticePageLayout';
+import PitchStaff from '@/app/components/features/practice/PitchStaff';
+import ScoreDisplay from '@/app/components/features/practice/ScoreDisplay';
+import InstructionsText from '@/app/components/features/practice/InstructionsText';
+import { playTone, playSequence, cleanupAudio } from '@/app/lib/audio/audioUtils';
+import { 
+  initialAnimationState, 
+  AnimationState, 
+  calculateNotePosition,
+  calculateCurrentNoteIndex,
+  calculateProgress, 
+  calculateScore 
+} from '@/app/lib/animation/animationUtils';
+
+interface PracticePageProps {
+  params: {
+    levelId: string;
+  };
+}
+
+export default function PracticePage({ params }: PracticePageProps) {
+  const router = useRouter();
+  const levelId = parseInt(params.levelId);
+  
+  // 레벨 데이터 가져오기
+  const levelData = levels.find(level => level.id === levelId);
+  
+  // 레벨 없으면 오류 표시
+  if (!levelData) {
+    return <div>Level not found</div>;
+  }
+
+  // 레퍼런스 저장용
+  const animationFrameRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const lastPlayedNoteRef = useRef<number>(-1);
+  
+  // 상태 관리
+  const [selectedRange, setSelectedRange] = useState<string>('female');
+  const [animationState, setAnimationState] = useState<AnimationState>({
+    ...initialAnimationState,
+    score: levelId === 1 ? 850 : 920 // 초기 임의 점수
+  });
+  
+  // 모든 음표 데이터 로드
+  const [allNotes, setAllNotes] = useState<any[]>([]);
+  const [visibleNotes, setVisibleNotes] = useState<any[]>([]);
+  
+  // 템포 및 비트 설정
+  const tempo = levelData.tempo || 60; // 기본 BPM 60
+  const beatDuration = 60 / tempo; // 초 단위 비트 길이
+  
+  // 기본 범위 옵션
+  const defaultRangeOptions = [
+    { label: "Female (C4-C5)", value: 'female' },
+    { label: "Male (C3-C4)", value: 'male' },
+  ];
+  
+  // 범위 옵션 설정
+  const rangeOptions = levelData.ranges ? [
+    { label: `Female (${levelData.ranges.female})`, value: 'female' },
+    { label: `Male (${levelData.ranges.male})`, value: 'male' },
+  ] : defaultRangeOptions;
+
+  // 모든 음표 초기화
+  useEffect(() => {
+    if (!levelData.scale) return;
+    
+    // 모든 음표에 대한 기본 데이터 생성
+    const noteData = levelData.scale.map((note, index) => {
+      return {
+        id: index,
+        text: note,
+        pitchClass: index % 2 === 0 ? `p${levelId}-${note.toLowerCase()}` : `p${levelId}-${note.toLowerCase()}`,
+        durationClass: "note-duration-medium",
+        positionClass: "note-position-0" // 초기 위치 (오른쪽 끝)
+      };
+    });
+    
+    setAllNotes(noteData);
+  }, [levelData, levelId]);
+
+  // 애니메이션 프레임 함수
+  const animateFrame = (timestamp: number) => {
+    if (!animationFrameRef.current || !levelData.scale) return;
+    
+    // 애니메이션 시작 시간이 없으면 초기화
+    if (startTimeRef.current === 0) {
+      startTimeRef.current = timestamp;
+    }
+    
+    // 경과 시간 계산 (초 단위)
+    const elapsedSeconds = (timestamp - startTimeRef.current) / 1000;
+    
+    // 분석 시간에 따른 현재 음표 인덱스 계산
+    const currentNoteIndex = Math.floor(elapsedSeconds / beatDuration);
+    
+    // 음표가 타겟 라인에 도달했을 때 소리 재생
+    // 정확한 타이밍을 위해 우리는 음표가 정확히 타겟 라인에 있을 때만 소리를 재생해야 함
+    const notePositionPercent = (elapsedSeconds % beatDuration) / beatDuration * 100;
+    
+    // 타겟 라인에 도달했을 때 (30% 위치, 분석 5% 오차 허용)
+    if (currentNoteIndex !== lastPlayedNoteRef.current && 
+        notePositionPercent >= 25 && notePositionPercent <= 35 &&
+        currentNoteIndex >= 0 && 
+        currentNoteIndex < levelData.scale.length) {
+      
+      const note = levelData.scale[currentNoteIndex];
+      playTone(note, selectedRange as 'male' | 'female', beatDuration * 0.9);
+      lastPlayedNoteRef.current = currentNoteIndex;
+    }
+    
+    // 모든 음표 위치 업데이트
+    const updatedVisibleNotes = allNotes.map(note => {
+      const positionClass = calculateNotePosition(
+        note.id, 
+        elapsedSeconds, 
+        tempo,
+        levelData.scale?.length || 0
+      );
+      
+      return {
+        ...note,
+        positionClass: positionClass
+      };
+    }).filter(note => note.positionClass !== "hidden"); // 보이는 음표만 필터링
+    
+    setVisibleNotes(updatedVisibleNotes);
+    
+    // 애니메이션 상태 업데이트
+    setAnimationState(prev => ({
+      ...prev,
+      currentNoteIndex: currentNoteIndex,
+      progress: calculateProgress(currentNoteIndex, levelData.scale?.length || 1),
+      score: calculateScore(levelId, currentNoteIndex, levelData.scale?.length || 1),
+      currentTime: elapsedSeconds,
+    }));
+    
+    // 모든 음표가 지나갔는지 확인
+    const totalDuration = (levelData.scale.length + 2) * beatDuration; // 추가 시간을 위해 +2
+    if (elapsedSeconds < totalDuration) {
+      // 애니메이션 계속
+      animationFrameRef.current = requestAnimationFrame(animateFrame);
+    } else {
+      // 애니메이션 종료
+      setAnimationState(prev => ({
+        ...prev,
+        isPlaying: false,
+        progress: 100,
+      }));
+      animationFrameRef.current = null;
+    }
+  };
+
+  // 애니메이션 시작
+  const startAnimation = () => {
+    if (animationFrameRef.current) return;
+    
+    // 상태 초기화
+    setAnimationState(prev => ({
+      ...prev,
+      isPlaying: true,
+      isPaused: false,
+      currentNoteIndex: 0,
+      progress: 0,
+      currentTime: 0,
+    }));
+    
+    // 참조값 초기화
+    startTimeRef.current = 0;
+    lastPlayedNoteRef.current = -1;
+    
+    // 애니메이션 시작
+    animationFrameRef.current = requestAnimationFrame(animateFrame);
+  };
+
+  // 애니메이션 정지
+  const stopAnimation = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    // 상태 초기화
+    setAnimationState({
+      ...initialAnimationState,
+      score: animationState.score, // 점수 유지
+    });
+    
+    // 모든 음표 위치 초기화
+    const resetNotes = allNotes.map(note => ({
+      ...note,
+      positionClass: "note-position-0"
+    }));
+    
+    setVisibleNotes(resetNotes.slice(0, 3)); // 초기에 3개만 표시
+  };
+
+  // 성별에 따른 음역대 변경 핸들러
+  const handleRangeChange = (newRange: string) => {
+    setSelectedRange(newRange);
+    
+    // 재생 중이면 변경 후 다시 시작
+    const wasPlaying = animationState.isPlaying;
+    if (wasPlaying) {
+      stopAnimation();
+      setTimeout(() => {
+        startAnimation();
+      }, 100);
+    }
+  };
+  
+  // 재생/일시정지 토글 핸들러
+  const handlePlayPauseClick = () => {
+    if (animationState.isPlaying) {
+      stopAnimation(); // 일시정지 대신 정지로 단순화
+    } else {
+      startAnimation();
+    }
+  };
+  
+  // 리셋 핸들러
+  const handleRestartClick = () => {
+    stopAnimation();
+    setTimeout(() => {
+      startAnimation();
+    }, 100);
+  };
+  
+  // 정지 핸들러
+  const handleStopClick = () => {
+    stopAnimation();
+  };
+  
+  // 뒤로 가기 핸들러
+  const handleBackClick = () => {
+    stopAnimation();
+    router.push('/levels');
+  };
+  
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      cleanupAudio();
+    };
+  }, []);
+
+  // Coming Soon 표시 (레벨 3-5)
+  if (levelId >= 3) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="practice-header-light sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between p-4">
+          <button
+            className="back-button p-2 rounded-full hover:bg-gray-100 text-black"
+            title="Go back"
+            onClick={handleBackClick}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <h2 className="text-center flex-grow font-semibold text-xl text-gray-800">
+            {levelData.title}
+          </h2>
+          <div className="w-10"></div>
+        </div>
+        
+        <div className="flex-grow flex flex-col items-center justify-center p-8 text-center">
+          <h3 className={`text-xl font-bold ${levelData.accentColor} mb-4`}>Coming Soon!</h3>
+          <p className="text-gray-600 mb-6">{levelData.summary}</p>
+          <p className="text-gray-500 text-sm">This level is under development and will be available in a future update.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <PracticePageLayout
+      levelTitle={levelData.title}
+      rangeOptions={rangeOptions}
+      selectedRange={selectedRange}
+      onRangeChange={handleRangeChange}
+      isPlaying={animationState.isPlaying}
+      onPlayPauseClick={handlePlayPauseClick}
+      onRestartClick={handleRestartClick}
+      onStopClick={handleStopClick}
+      progressPercent={animationState.progress}
+      onBackClick={handleBackClick}
+    >
+      <div className="w-full max-w-xs text-center">
+        <p className="practice-subtext-light text-xs mb-1 text-gray-500">
+          Visual Guide: {levelData.visualGuide || "Coming Soon"}
+        </p>
+        
+        {/* 음표 위치 시각화 */}
+        <PitchStaff notesToDisplay={visibleNotes} />
+      </div>
+      
+      {/* 점수 표시 */}
+      <ScoreDisplay score={animationState.score} />
+      
+      {/* 연습 가이드 표시 */}
+      <InstructionsText
+        focusText={levelData.focusText || "Coming soon"}
+        rhythmText={levelData.rhythmText || "Coming soon"}
+      />
+      
+      {/* 모바일 오디오 사용 안내 메시지 (선택적으로 표시) */}
+      {!animationState.isPlaying && (
+        <div className="text-xs text-gray-500 flex items-center mt-2">
+          <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" />
+          Tap Play to start the vocal guide
+        </div>
+      )}
+    </PracticePageLayout>
+  );
+}

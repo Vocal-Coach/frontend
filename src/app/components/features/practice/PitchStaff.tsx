@@ -19,21 +19,55 @@ const PitchStaff: React.FC<PitchStaffProps> = ({
   targetLineVisible = true,
   pitchPathData,
 }) => {
+  // 희미한 수직 점선 생성 함수
+  const renderVerticalDottedLines = () => {
+    const lines = [];
+    for (let i = 0; i < 11; i++) {
+      const position = i * 10; // 0%, 10%, 20%, ... 100%
+      lines.push(
+        <div 
+          key={`vline-${i}`} 
+          className="absolute top-0 bottom-0 w-px border-l border-dashed border-gray-200 opacity-40"
+          style={{ left: `${position}%` }}
+        />
+      );
+    }
+    return lines;
+  };
+  
+  // 수평선 생성 함수
+  const renderHorizontalLines = () => {
+    const lines = [];
+    for (let i = 1; i < 8; i++) {
+      const position = i * 12.5; // 12.5%, 25%, 37.5%, ... 87.5%
+      lines.push(
+        <div 
+          key={`hline-${i}`} 
+          className="absolute left-0 right-0 h-px bg-gray-200 opacity-40"
+          style={{ top: `${position}%` }}
+        />
+      );
+    }
+    return lines;
+  };
+  
   return (
-    <div className="pitch-staff pitch-staff-light rounded-lg p-2 relative bg-gray-50 h-70 w-full max-w-xs mx-auto">
+    <div className="pitch-staff rounded-xl p-2 relative h-[400px] w-full max-w-xs mx-auto">
+      {/* 수직 점선 그리드 */}
+      {renderVerticalDottedLines()}
+      
+      {/* 수평선 그리드 */}
+      {renderHorizontalLines()}
+      
+      {/* 타겟 라인 (점선) */}
       {targetLineVisible && (
-        <div className="target-line target-line-light absolute left-[30%] top-0 bottom-0 w-0.5 bg-amber-400 z-10"></div>
+        <div className="target-line absolute left-[30%] top-0 bottom-0"></div>
       )}
 
-      {/* Staff lines */}
-      <div className="absolute top-1/4 left-0 right-0 h-px staff-line-light border-b border-gray-300"></div>
-      <div className="absolute top-1/2 left-0 right-0 h-px staff-line-light border-b border-gray-300"></div>
-      <div className="absolute top-3/4 left-0 right-0 h-px staff-line-light border-b border-gray-300"></div>
-
-      {/* Notes */}
+      {/* 음표 */}
       {notesToDisplay.map((note, index) => (
         <NoteRect
-          key={index}
+          key={`${index}-${note.text}`}
           text={note.text}
           pitchClass={note.pitchClass}
           durationClass={note.durationClass}
@@ -41,13 +75,8 @@ const PitchStaff: React.FC<PitchStaffProps> = ({
         />
       ))}
 
-      {/* Pitch path lines */}
-      {pitchPathData || (
-        <svg className="pitch-path-line pitch-path-line-light absolute top-0 left-0 w-full h-full" viewBox="0 0 100 280" preserveAspectRatio="none">
-          <path d="M calc(25% - 40px + 40px) calc(100% - 60% - 15px) L calc(60% - 25px) calc(100% - 40% - 15px)" stroke="#4338ca" strokeWidth="2" fill="none" strokeDasharray="4" />
-          <path d="M calc(60% - 25px + 50px) calc(100% - 40% - 15px) L calc(95% - 40px) calc(100% - 20% - 15px)" stroke="#4338ca" strokeWidth="2" fill="none" strokeDasharray="4" />
-        </svg>
-      )}
+      {/* 피치 경로 라인 (선택적) */}
+      {pitchPathData}
     </div>
   );
 };
