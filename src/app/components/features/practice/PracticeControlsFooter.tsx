@@ -20,28 +20,28 @@ const PracticeControlsFooter: React.FC<PracticeControlsFooterProps> = ({
   progressPercent,
 }) => {
   return (
-    <div className="p-4 practice-footer-light bg-white border-t border-gray-200">
+    <div className="p-2 practice-footer-light bg-white border-t border-gray-200">
       <ProgressBar percent={progressPercent} />
       
-      <div className="practice-footer-controls flex items-center justify-between px-6 py-2">
+      <div className="practice-footer-controls flex items-center justify-between px-4 py-1">
         <button
           className="control-button control-button-light restart restart-button-light p-2 rounded-full hover:bg-gray-100"
           title="Restart"
           onClick={onRestartClick}
         >
-          <RotateCw className="w-6 h-6 text-gray-600" />
+          <RotateCw className="w-5 h-5 text-gray-600" />
         </button>
         
         <div className="flex-grow flex justify-center">
           <button
-            className="control-button play-pause play-pause-light bg-indigo-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg"
+            className="control-button play-pause play-pause-light bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
             title={isPlaying ? "Pause" : "Play"}
             onClick={onPlayPauseClick}
           >
             {isPlaying ? (
-              <Pause className="w-8 h-8 text-white" />
+              <Pause className="w-6 h-6 text-white" />
             ) : (
-              <Play className="w-8 h-8 text-white" />
+              <Play className="w-6 h-6 text-white" />
             )}
           </button>
         </div>
@@ -51,7 +51,7 @@ const PracticeControlsFooter: React.FC<PracticeControlsFooterProps> = ({
           title="Stop"
           onClick={onStopClick}
         >
-          <Square className="w-6 h-6 text-red-500" />
+          <Square className="w-5 h-5 text-red-500" />
         </button>
       </div>
     </div>

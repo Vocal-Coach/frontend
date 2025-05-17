@@ -14,14 +14,14 @@ const InstructionsText: React.FC<InstructionsTextProps> = ({
   return (
     <div className="text-center">
       {visualGuideText && (
-        <p className="practice-subtext-light text-xs mb-1 text-gray-500">
-          Visual Guide: {visualGuideText}
+        <p className="practice-subtext-light text-xs mb-0.5 text-gray-500">
+          {visualGuideText}
         </p>
       )}
-      <p className="text-md font-medium practice-text-light text-gray-700">
+      <p className="text-sm font-medium practice-text-light text-gray-700">
         {focusText}
       </p>
-      <p className="text-xs practice-subtext-light mt-1 text-gray-500">
+      <p className="text-xs practice-subtext-light mt-0.5 text-gray-500">
         Rhythm: {rhythmText}
       </p>
     </div>

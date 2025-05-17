@@ -52,7 +52,7 @@ const PitchStaff: React.FC<PitchStaffProps> = ({
   };
   
   return (
-    <div className="pitch-staff rounded-xl p-2 relative h-[400px] w-full max-w-xs mx-auto">
+    <div className="pitch-staff rounded-xl p-2 relative h-[220px] w-full max-w-xs mx-auto">
       {/* 수직 점선 그리드 */}
       {renderVerticalDottedLines()}
       

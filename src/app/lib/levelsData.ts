@@ -23,6 +23,7 @@ export interface Level {
   }[];
   focusText?: string;
   rhythmText?: string;
+  isComingSoon?: boolean; // Coming Soon 표시용 프로퍼티 추가
 }
 
 export const levels: Level[] = [
@@ -45,19 +46,19 @@ export const levels: Level[] = [
     displayNotes: [
       {
         text: "Mi",
-        pitchClass: "p4-mi",
+        pitchClass: "p1-mi",
         durationClass: "note-duration-medium",
         positionClass: "note-position-current"
       },
       {
         text: "Re",
-        pitchClass: "p4-re",
+        pitchClass: "p1-re",
         durationClass: "note-duration-medium",
         positionClass: "note-position-next"
       },
       {
         text: "Do",
-        pitchClass: "p4-do",
+        pitchClass: "p1-do",
         durationClass: "note-duration-medium",
         positionClass: "note-position-next-2"
       }
@@ -84,19 +85,19 @@ export const levels: Level[] = [
     displayNotes: [
       {
         text: "Fa",
-        pitchClass: "p5-fa",
+        pitchClass: "p2-fa",
         durationClass: "note-duration-short",
         positionClass: "note-position-current"
       },
       {
         text: "So",
-        pitchClass: "p5-so",
+        pitchClass: "p2-so",
         durationClass: "note-duration-short",
         positionClass: "note-position-next"
       },
       {
         text: "La",
-        pitchClass: "p5-la",
+        pitchClass: "p2-la",
         durationClass: "note-duration-short",
         positionClass: "note-position-next-2"
       }
@@ -110,6 +111,16 @@ export const levels: Level[] = [
     subtitle: "Advanced Exercises",
     accentColor: "text-purple-600", // purple for intermediate
     summary: "Goal: Basic vocalization and breathing control, expanded vocal range, start expressing emotions.",
+    isComingSoon: true,
+    // 향후 구현을 위한 기본 데이터
+    tempo: 100,
+    beatDuration: 0.6,
+    ranges: {
+      female: "C4-D5",
+      male: "B2-D4"
+    },
+    scale: ["Do", "Re", "Mi", "Fa", "So", "La", "Ti", "Do2", "Ti", "La", "So", "Fa", "Mi", "Re", "Do"],
+    rhythmText: "Medium tempo exercises"
   },
   {
     id: 4,
@@ -117,6 +128,15 @@ export const levels: Level[] = [
     subtitle: "Genre Techniques",
     accentColor: "text-indigo-600", // indigo for advanced
     summary: "Goal: Able to handle various genres, use vocal techniques, has stage experience.",
+    isComingSoon: true,
+    // 향후 구현을 위한 기본 데이터
+    tempo: 120,
+    beatDuration: 0.5,
+    ranges: {
+      female: "B3-E5",
+      male: "A2-E4"
+    },
+    rhythmText: "Fast-paced genre exercises"
   },
   {
     id: 5,
@@ -124,5 +144,14 @@ export const levels: Level[] = [
     subtitle: "Performance Mastery",
     accentColor: "text-rose-600", // rose for pre-professional
     summary: "Goal: Mastery of diverse vocal styles, expressive power, and ability to handle difficult songs.",
+    isComingSoon: true,
+    // 향후 구현을 위한 기본 데이터
+    tempo: 140,
+    beatDuration: 0.43,
+    ranges: {
+      female: "A3-G5",
+      male: "G2-G4"
+    },
+    rhythmText: "Performance-level exercises"
   }
 ];

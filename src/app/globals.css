@@ -15,32 +15,37 @@ body {
   color: var(--text-primary);
 }
 
-/* Note vertical positions based on pitch */
-/* Level 1 - 5-Tone Scale - 올바른 방향으로 수정 (높은 음 = 위쪽) */
-.p1-do { bottom: 70%; } /* 가장 낮은 음 = 아래쪽에 위치 */
-.p1-re { bottom: 80%; } /* 중간 음 = 중간에 위치 */
-.p1-mi { bottom: 90%; } /* 가장 높은 음 = 위쪽에 위치 */
+/* 모든 레벨에 공통으로 적용되는 음표 수직 위치 시스템 */
+/* 낮은 음 -> 높은 음 순서로 위로 올라가는 형태 */
+.p1-do, .p2-do { bottom: 20%; }  /* 도 (가장 낮은 음) */
+.p1-re, .p2-re { bottom: 30%; }  /* 레 */
+.p1-mi, .p2-mi { bottom: 40%; }  /* 미 */
+.p2-fa { bottom: 50%; }          /* 파 */
+.p2-so { bottom: 60%; }          /* 솔 */
+.p2-la { bottom: 70%; }          /* 라 */
+.p2-ti { bottom: 80%; }          /* 시 */
+.p2-do2 { bottom: 90%; }         /* 높은 도 */
 
-/* Level 2 - Major Scale - 올바른 방향으로 수정 (도부터 시작하여 높아짐) */
-.p2-do { bottom: 20%; }  /* 낮은 도 */
-.p2-re { bottom: 30%; }
-.p2-mi { bottom: 40%; }
-.p2-fa { bottom: 50%; }
-.p2-so { bottom: 60%; }
-.p2-la { bottom: 70%; }
-.p2-ti { bottom: 80%; }
-.p2-do2 { bottom: 90%; } /* 높은 도 */
+/* 향후 레벨에 대비한 추가 음표 위치 */
+.p3-do, .p4-do, .p5-do { bottom: 20%; }  /* 도 */
+.p3-re, .p4-re, .p5-re { bottom: 30%; }  /* 레 */
+.p3-mi, .p4-mi, .p5-mi { bottom: 40%; }  /* 미 */
+.p3-fa, .p4-fa, .p5-fa { bottom: 50%; }  /* 파 */
+.p3-so, .p4-so, .p5-so { bottom: 60%; }  /* 솔 */
+.p3-la, .p4-la, .p5-la { bottom: 70%; }  /* 라 */
+.p3-ti, .p4-ti, .p5-ti { bottom: 80%; }  /* 시 */
+.p3-do2, .p4-do2, .p5-do2 { bottom: 90%; } /* 높은 도 */
 
 /* Note styles */
 .note-circle {
   position: absolute;
   border-radius: 9999px; /* Full rounded for circle */
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: bold;
   transition: left 0.1s linear; /* 더 빠른 반응을 위해 트랜지션 시간 감소 */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -81,8 +86,8 @@ body {
 .pitch-staff {
   position: relative;
   width: 100%;
-  height: 400px;
-  margin: 5px 0;
+  height: 220px;
+  margin: 0;
   overflow: hidden;
   border: 1px solid rgba(229, 231, 235, 0.3);
   background-color: rgba(255, 255, 255, 0.8);

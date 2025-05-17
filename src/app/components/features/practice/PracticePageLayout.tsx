@@ -39,25 +39,31 @@ const PracticePageLayout: React.FC<PracticePageLayoutProps> = ({
 }) => {
   return (
     <div className="flex flex-col h-full">
+      {/* 헤더 */}
       <PracticeHeader title={levelTitle} onBackClick={onBackClick} />
       
+      {/* 범위 선택기 */}
       <RangeSelector
         options={rangeOptions}
         selectedValue={selectedRange}
         onChange={onRangeChange}
       />
       
-      <div className="core-practice-area-light bg-white p-4 flex-grow flex flex-col items-center justify-around">
+      {/* 메인 컨텐츠 영역 */}
+      <div className="core-practice-area-light bg-white flex-1 flex flex-col items-center justify-between py-2 overflow-auto">
         {children}
       </div>
       
-      <PracticeControlsFooter
-        isPlaying={isPlaying}
-        onPlayPauseClick={onPlayPauseClick}
-        onRestartClick={onRestartClick}
-        onStopClick={onStopClick}
-        progressPercent={progressPercent}
-      />
+      {/* 하단 컨트롤 */}
+      <div className="mt-auto">
+        <PracticeControlsFooter
+          isPlaying={isPlaying}
+          onPlayPauseClick={onPlayPauseClick}
+          onRestartClick={onRestartClick}
+          onStopClick={onStopClick}
+          progressPercent={progressPercent}
+        />
+      </div>
     </div>
   );
 };
