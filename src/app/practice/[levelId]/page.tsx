@@ -129,7 +129,7 @@ export default function PracticePage({ params }: PracticePageProps) {
         
         // 500ms마다 평가 (너무 자주 평가하지 않도록)
         if (currentTime - lastEvaluationTime > 500) {
-          evaluateUserVoice(expectedNote, frequency, audioData);
+          evaluateUserVoice(expectedNote, frequency, audioData, selectedRange as 'male' | 'female');
           setLastEvaluationTime(currentTime);
         }
       }
@@ -137,7 +137,12 @@ export default function PracticePage({ params }: PracticePageProps) {
   };
   
   // 사용자 음성 평가
-  const evaluateUserVoice = (expectedNote: string, frequency: number, audioData: Float32Array) => {
+  const evaluateUserVoice = (
+    expectedNote: string,
+    frequency: number,
+    audioData: Float32Array,
+    gender: 'male' | 'female'
+  ) => {
     // 현재 점수
     const currentScore = animationState.score;
     
@@ -145,7 +150,8 @@ export default function PracticePage({ params }: PracticePageProps) {
     const evaluationResult = evaluateVocalPerformance(
       expectedNote,
       { frequency, samples: audioData },
-      currentScore
+      currentScore,
+      gender
     );
     
     // 점수가 변경되었다면 점수 업데이트 및 애니메이션

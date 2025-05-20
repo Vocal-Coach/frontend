@@ -8,7 +8,7 @@ interface NoteFrequencies {
 }
 
 // 옥타브별 음 주파수 매핑 (C0부터 B8까지)
-const NOTE_FREQUENCIES: NoteFrequencies = {
+export const NOTE_FREQUENCIES: NoteFrequencies = {
   // 옥타브 3 (남성 목소리 대략적인 범위)
   'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
   // 옥타브 4 (여성 목소리 대략적인 범위 시작)
@@ -30,6 +30,14 @@ export const SOLFEGE_TO_NOTE: { [key: string]: SolfegeToNote } = {
   'female': {
     'Do': 'C4', 'Re': 'D4', 'Mi': 'E4', 'Fa': 'F4', 'So': 'G4', 'La': 'A4', 'Ti': 'B4', 'Do2': 'C5'
   }
+};
+
+export const getFrequencyForSolfege = (
+  solfege: string,
+  gender: 'male' | 'female'
+): number | undefined => {
+  const note = SOLFEGE_TO_NOTE[gender][solfege];
+  return note ? NOTE_FREQUENCIES[note] : undefined;
 };
 
 // 오디오 컨텍스트를 저장할 변수
