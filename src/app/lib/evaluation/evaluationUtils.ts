@@ -2,6 +2,8 @@
  * 음성 평가 유틸리티 함수들
  */
 
+import { NOTE_FREQUENCIES, SOLFEGE_TO_NOTE } from '../audio/audioUtils';
+
 // 음성 평가 결과 타입 정의
 export interface VocalEvaluationResult {
   pitchAccuracy: number;   // 음높이 정확도 (0-100%)
@@ -15,6 +17,14 @@ const PITCH_ACCURACY_THRESHOLD = 85; // 85% 이상 정확도면 음 맞춤으로
 
 // 진동수 품질 임계값 (실제 구현 시 조정 필요)
 const VIBRATO_QUALITY_THRESHOLD = 70; // 70% 이상이면 좋은 비브라토로 인정
+
+export const getExpectedFrequency = (
+  solfege: string,
+  gender: 'male' | 'female'
+): number | undefined => {
+  const note = SOLFEGE_TO_NOTE[gender]?.[solfege];
+  return note ? NOTE_FREQUENCIES[note] : undefined;
+};
 
 /**
  * 기대 음높이와 사용자 음높이 간의 정확도 계산
@@ -66,11 +76,12 @@ export const evaluateVocalPerformance = (
     frequency: number,
     samples: Float32Array
   },
-  currentScore: number
+  currentScore: number,
+  gender: 'male' | 'female' = 'female'
 ): VocalEvaluationResult => {
   // 1. 피치 정확도 계산
-  // 여기서는 예상 주파수를 하드코딩했지만, 실제로는 expectedNote에 따라 결정해야 함
-  const expectedFrequency = 440; // 예: A4 (라)의 주파수
+  const expectedFrequency =
+    getExpectedFrequency(expectedNote, gender) ?? 440;
   const pitchAccuracy = calculatePitchAccuracy(expectedFrequency, userAudioData.frequency);
   
   // 2. 비브라토 품질 계산
