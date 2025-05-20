@@ -133,6 +133,9 @@ export const setupPitchDetection = (
 ): (() => void) => {
   // 마이크 입력을 오디오 컨텍스트에 연결
   const microphone = audioContext.createMediaStreamSource(stream);
+
+  // 애니메이션 프레임 ID 저장용 변수
+  let frameId = 0;
   
   // 분석기 노드 생성
   const analyser = audioContext.createAnalyser();
@@ -157,7 +160,7 @@ export const setupPitchDetection = (
     onPitchDetected(mockFrequency, dataArray);
     
     // 다음 프레임에서 다시 감지
-    requestAnimationFrame(detectPitch);
+    frameId = requestAnimationFrame(detectPitch);
   };
   
   // 감지 시작
@@ -165,6 +168,9 @@ export const setupPitchDetection = (
   
   // 정리 함수 반환
   return () => {
+    // 진행 중인 애니메이션 프레임 취소
+    cancelAnimationFrame(frameId);
+
     microphone.disconnect();
     // 필요한 추가 정리 작업
   };
