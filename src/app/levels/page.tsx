@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { levels } from '@/app/lib/levelsData';
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { levels } from "@/lib/levelsData";
 
 export default function Levels() {
   return (
@@ -18,14 +18,16 @@ export default function Levels() {
         </h2>
         <div className="w-10"></div>
       </div>
-      
+
       <div className="flex-grow overflow-y-auto px-6 pb-6 pt-4">
-        <div className="space-y-6"> {/* 카드 사이 간격 조정 */}
+        <div className="space-y-6">
+          {" "}
+          {/* 카드 사이 간격 조정 */}
           {levels.map((level) => (
             <Link href={`/practice/${level.id}`} key={level.id}>
               <div className="bg-white p-5 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer mb-4">
                 <h3 className={`text-lg font-semibold ${level.accentColor}`}>
-                  Level {level.id}: {level.title.split(':')[1].trim()}
+                  Level {level.id}: {level.title.split(":")[1].trim()}
                 </h3>
                 <p className="text-sm text-gray-600 leading-snug mt-1">
                   {level.summary}

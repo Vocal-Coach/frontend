@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Card from '@/app/components/ui/Card';
-import { Mic, BarChartBig, BookOpen } from 'lucide-react';
+import Link from "next/link";
+import Card from "@/components/ui/Card";
+import { Mic, BarChartBig, BookOpen } from "lucide-react";
 
 export default function PathSelection() {
   return (
@@ -10,7 +10,7 @@ export default function PathSelection() {
       <h2 className="text-3xl font-semibold text-gray-800 mb-10 text-center">
         How would you like to begin?
       </h2>
-      
+
       <div className="space-y-5 w-full max-w-sm mx-auto">
         <Link href="/levels">
           <Card
@@ -20,21 +20,25 @@ export default function PathSelection() {
             accentColorClass="text-purple-600"
           />
         </Link>
-        
+
         <Card
           title="Evaluate My Voice"
           description="Get a quick analysis of your pitch, tone, and range."
           icon={<Mic className="text-indigo-600" />}
           accentColorClass="text-indigo-600"
-          onClick={() => alert("This feature will be available in a future update.")}
+          onClick={() =>
+            alert("This feature will be available in a future update.")
+          }
         />
-        
+
         <Card
           title="Learn Vocal Basics"
           description="Understand fundamental singing techniques and theory."
           icon={<BookOpen className="text-green-600" />}
           accentColorClass="text-green-600"
-          onClick={() => alert("This feature will be available in a future update.")}
+          onClick={() =>
+            alert("This feature will be available in a future update.")
+          }
         />
       </div>
     </div>

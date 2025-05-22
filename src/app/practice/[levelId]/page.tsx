@@ -3,28 +3,24 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertTriangle, Mic, MicOff, Award } from "lucide-react";
-import { levels } from "@/app/lib/levelsData";
-import PracticePageLayout from "@/app/components/features/practice/PracticePageLayout";
-import PitchStaff from "@/app/components/features/practice/PitchStaff";
-import ScoreDisplay from "@/app/components/features/practice/ScoreDisplay";
-import InstructionsText from "@/app/components/features/practice/InstructionsText";
-import {
-  playTone,
-  playSequence,
-  cleanupAudio,
-} from "@/app/lib/audio/audioUtils";
+import { levels } from "@/lib/levelsData";
+import PracticePageLayout from "@/components/features/practice/PracticePageLayout";
+import PitchStaff from "@/components/features/practice/PitchStaff";
+import ScoreDisplay from "@/components/features/practice/ScoreDisplay";
+import InstructionsText from "@/components/features/practice/InstructionsText";
+import { playTone, playSequence, cleanupAudio } from "@/lib/audio/audioUtils";
 import {
   initialAnimationState,
   AnimationState,
   calculateNotePosition,
   calculateCurrentNoteIndex,
   calculateProgress,
-} from "@/app/lib/animation/animationUtils";
+} from "@/lib/animation/animationUtils";
 import {
   requestMicrophoneAccess,
   setupPitchDetection,
   evaluateVocalPerformance,
-} from "@/app/lib/evaluation/evaluationUtils";
+} from "@/lib/evaluation/evaluationUtils";
 
 interface PracticePageProps {
   params: {

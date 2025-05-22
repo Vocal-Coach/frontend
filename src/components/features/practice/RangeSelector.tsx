@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Button from '@/app/components/ui/Button';
+import React from "react";
+import Button from "@/components/ui/Button";
 
 interface RangeOption {
   label: string;
@@ -28,9 +28,9 @@ const RangeSelector: React.FC<RangeSelectorProps> = ({
           isActive={option.value === selectedValue}
           onClick={() => onChange(option.value)}
           className={`page-practice-range-toggle-button ${
-            index === 0 
-              ? 'rounded-l-lg rounded-r-none border-r-0' 
-              : 'rounded-r-lg rounded-l-none'
+            index === 0
+              ? "rounded-l-lg rounded-r-none border-r-0"
+              : "rounded-r-lg rounded-l-none"
           } px-4 py-2 text-sm`}
         >
           {option.label}
