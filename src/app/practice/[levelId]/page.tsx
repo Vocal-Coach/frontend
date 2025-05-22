@@ -21,6 +21,7 @@ import {
   setupPitchDetection,
   evaluateVocalPerformance,
 } from "@/lib/evaluation/evaluationUtils";
+import { useLevelData } from "@/hooks/useLevelData";
 
 interface PracticePageProps {
   params: {
@@ -56,7 +57,15 @@ export default function PracticePage({ params }: PracticePageProps) {
   const [allNotes, setAllNotes] = useState<any[]>([]);
   const [visibleNotes, setVisibleNotes] = useState<any[]>([]);
 
-  const levelData = levels.find((level) => level.id === levelId);
+  const {
+    levelData,
+    isValid,
+    isComingSoon,
+    tempo,
+    beatDuration,
+    rangeOptions,
+  } = useLevelData(levelId);
+
   // 모든 음표 초기화
   useEffect(() => {
     if (!levelData?.scale) return;
@@ -79,23 +88,6 @@ export default function PracticePage({ params }: PracticePageProps) {
   if (!levelData) {
     return <div>Level not found</div>;
   }
-  // 템포 및 비트 설정
-  const tempo = levelData.tempo || 60; // 기본 BPM 60
-  const beatDuration = 60 / tempo; // 초 단위 비트 길이
-
-  // 기본 범위 옵션
-  const defaultRangeOptions = [
-    { label: "Female (C4-C5)", value: "female" },
-    { label: "Male (C3-C4)", value: "male" },
-  ];
-
-  // 범위 옵션 설정
-  const rangeOptions = levelData.ranges
-    ? [
-        { label: `Female (${levelData.ranges.female})`, value: "female" },
-        { label: `Male (${levelData.ranges.male})`, value: "male" },
-      ]
-    : defaultRangeOptions;
 
   // 마이크 액세스 설정
   const setupMicrophone = async () => {
