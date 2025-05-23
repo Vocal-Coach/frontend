@@ -1,23 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertTriangle, Mic, MicOff, Award } from "lucide-react";
 import PracticePageLayout from "@/components/features/practice/PracticePageLayout";
 import PitchStaff from "@/components/features/practice/PitchStaff";
 import ScoreDisplay from "@/components/features/practice/ScoreDisplay";
 import InstructionsText from "@/components/features/practice/InstructionsText";
-import { playTone, playSequence, cleanupAudio } from "@/lib/audio/audioUtils";
-import {
-  initialAnimationState,
-  AnimationState,
-  calculateNotePosition,
-  calculateCurrentNoteIndex,
-  calculateProgress,
-} from "@/lib/animation/animationUtils";
 import { evaluateVocalPerformance } from "@/lib/evaluation/evaluationUtils";
 import { useLevelData } from "@/hooks/useLevelData";
 import { useMicrophone } from "@/hooks/useMicrophone";
+import { useAnimation } from "@/hooks/useAnimation";
+
 interface PracticePageProps {
   params: {
     levelId: string;
@@ -27,27 +21,13 @@ interface PracticePageProps {
 export default function PracticePage({ params }: PracticePageProps) {
   const router = useRouter();
   const levelId = parseInt(params.levelId);
-
-  // 레퍼런스 저장용
-  const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const lastPlayedNoteRef = useRef<number>(-1);
 
   // 상태 관리
   const [selectedRange, setSelectedRange] = useState<string>("female");
-  const [animationState, setAnimationState] = useState<AnimationState>({
-    ...initialAnimationState,
-    score: 0, // 점수 0부터 시작
-  });
-
-  // 마이크 관련 상태
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
   const [lastEvaluationTime, setLastEvaluationTime] = useState<number>(0);
   const [scoreFlash, setScoreFlash] = useState<boolean>(false);
-
-  // 모든 음표 데이터 로드
-  const [allNotes, setAllNotes] = useState<any[]>([]);
-  const [visibleNotes, setVisibleNotes] = useState<any[]>([]);
 
   const {
     levelData,
@@ -57,6 +37,27 @@ export default function PracticePage({ params }: PracticePageProps) {
     beatDuration,
     rangeOptions,
   } = useLevelData(levelId);
+
+  const {
+    animationState,
+    visibleNotes,
+    startAnimation,
+    stopAnimation,
+    handleRestartClick,
+    handleStopClick,
+    updateScore,
+  } = useAnimation({
+    levelData:
+      levelData && levelData.scale
+        ? {
+            scale: levelData.scale,
+            title: levelData.title,
+          }
+        : null,
+    tempo,
+    beatDuration,
+    selectedRange,
+  });
 
   const handlePitchDetected = useCallback(
     (frequency: number, audioData: Float32Array) => {
@@ -92,24 +93,6 @@ export default function PracticePage({ params }: PracticePageProps) {
   const { isMicActive, hasMicPermission, toggleMicrophone } =
     useMicrophone(handlePitchDetected);
 
-  // 모든 음표 초기화
-  useEffect(() => {
-    if (!levelData?.scale) return;
-
-    // 모든 음표에 대한 기본 데이터 생성
-    const noteData = levelData.scale.map((note, index) => {
-      return {
-        id: index,
-        text: note,
-        pitchClass: `p${levelId}-${note.toLowerCase()}`,
-        durationClass: "note-duration-medium",
-        positionClass: "note-position-0", // 초기 위치 (오른쪽 끝)
-      };
-    });
-
-    setAllNotes(noteData);
-  }, [levelData, levelId]);
-
   // 레벨 없으면 오류 표시
   if (!levelData) {
     return <div>Level not found</div>;
@@ -134,138 +117,12 @@ export default function PracticePage({ params }: PracticePageProps) {
     // 점수가 변경되었다면 점수 업데이트 및 애니메이션
     if (evaluationResult.totalScore > currentScore) {
       // 점수 업데이트
-      setAnimationState((prev) => ({
-        ...prev,
-        score: evaluationResult.totalScore,
-      }));
+      updateScore(evaluationResult.totalScore);
 
       // 점수 플래시 효과
       setScoreFlash(true);
       setTimeout(() => setScoreFlash(false), 500);
     }
-  };
-
-  // 애니메이션 프레임 함수
-  const animateFrame = (timestamp: number) => {
-    if (!animationFrameRef.current || !levelData.scale) return;
-
-    // 애니메이션 시작 시간이 없으면 초기화
-    if (startTimeRef.current === 0) {
-      startTimeRef.current = timestamp;
-    }
-
-    // 경과 시간 계산 (초 단위)
-    const elapsedSeconds = (timestamp - startTimeRef.current) / 1000;
-
-    // 분석 시간에 따른 현재 음표 인덱스 계산
-    const currentNoteIndex = Math.floor(elapsedSeconds / beatDuration);
-
-    // 음표가 타겟 라인에 도달했을 때 소리 재생
-    // 정확한 타이밍을 위해 우리는 음표가 정확히 타겟 라인에 있을 때만 소리를 재생해야 함
-    const notePositionPercent =
-      ((elapsedSeconds % beatDuration) / beatDuration) * 100;
-
-    // 타겟 라인에 도달했을 때 (30% 위치, 분석 5% 오차 허용)
-    if (
-      currentNoteIndex !== lastPlayedNoteRef.current &&
-      notePositionPercent >= 25 &&
-      notePositionPercent <= 35 &&
-      currentNoteIndex >= 0 &&
-      currentNoteIndex < levelData.scale.length
-    ) {
-      const note = levelData.scale[currentNoteIndex];
-      playTone(note, selectedRange as "male" | "female", beatDuration * 0.9);
-      lastPlayedNoteRef.current = currentNoteIndex;
-    }
-
-    // 모든 음표 위치 업데이트
-    const updatedVisibleNotes = allNotes
-      .map((note) => {
-        const positionClass = calculateNotePosition(
-          note.id,
-          elapsedSeconds,
-          tempo,
-          levelData.scale?.length || 0
-        );
-
-        return {
-          ...note,
-          positionClass: positionClass,
-        };
-      })
-      .filter((note) => note.positionClass !== "hidden"); // 보이는 음표만 필터링
-
-    setVisibleNotes(updatedVisibleNotes);
-
-    // 애니메이션 상태 업데이트
-    setAnimationState((prev) => ({
-      ...prev,
-      currentNoteIndex: currentNoteIndex,
-      progress: calculateProgress(
-        currentNoteIndex,
-        levelData.scale?.length || 1
-      ),
-      currentTime: elapsedSeconds,
-    }));
-
-    // 모든 음표가 지나갔는지 확인
-    const totalDuration = (levelData.scale.length + 2) * beatDuration; // 추가 시간을 위해 +2
-    if (elapsedSeconds < totalDuration) {
-      // 애니메이션 계속
-      animationFrameRef.current = requestAnimationFrame(animateFrame);
-    } else {
-      // 애니메이션 종료
-      setAnimationState((prev) => ({
-        ...prev,
-        isPlaying: false,
-        progress: 100,
-      }));
-      animationFrameRef.current = null;
-    }
-  };
-
-  // 애니메이션 시작
-  const startAnimation = () => {
-    if (animationFrameRef.current) return;
-
-    // 상태 초기화
-    setAnimationState((prev) => ({
-      ...prev,
-      isPlaying: true,
-      isPaused: false,
-      currentNoteIndex: 0,
-      progress: 0,
-      currentTime: 0,
-    }));
-
-    // 참조값 초기화
-    startTimeRef.current = 0;
-    lastPlayedNoteRef.current = -1;
-
-    // 애니메이션 시작
-    animationFrameRef.current = requestAnimationFrame(animateFrame);
-  };
-
-  // 애니메이션 정지
-  const stopAnimation = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-
-    // 상태 초기화 (점수는 유지)
-    setAnimationState((prev) => ({
-      ...initialAnimationState,
-      score: prev.score,
-    }));
-
-    // 모든 음표 위치 초기화
-    const resetNotes = allNotes.map((note) => ({
-      ...note,
-      positionClass: "note-position-0",
-    }));
-
-    setVisibleNotes(resetNotes.slice(0, 3)); // 초기에 3개만 표시
   };
 
   // 성별에 따른 음역대 변경 핸들러
@@ -285,23 +142,10 @@ export default function PracticePage({ params }: PracticePageProps) {
   // 재생/일시정지 토글 핸들러
   const handlePlayPauseClick = () => {
     if (animationState.isPlaying) {
-      stopAnimation(); // 일시정지 대신 정지로 단순화
+      stopAnimation();
     } else {
       startAnimation();
     }
-  };
-
-  // 리셋 핸들러
-  const handleRestartClick = () => {
-    stopAnimation();
-    setTimeout(() => {
-      startAnimation();
-    }, 100);
-  };
-
-  // 정지 핸들러
-  const handleStopClick = () => {
-    stopAnimation();
   };
 
   // 뒤로 가기 핸들러
@@ -309,39 +153,6 @@ export default function PracticePage({ params }: PracticePageProps) {
     stopAnimation();
     router.push("/levels");
   };
-
-  // 컴포넌트 언마운트 시 정리
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      cleanupAudio();
-    };
-  }, []);
-
-  // 오디오 접근 권한 요청
-  useEffect(() => {
-    // 모바일에서는 사용자 인터랙션 없이 오디오를 재생할 수 없으므로
-    // 사용자에게 안내 메시지를 표시할 수 있습니다.
-    const checkAudioPermission = async () => {
-      try {
-        // AudioContext 생성 시도
-        const AudioContextClass =
-          window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioContextClass();
-
-        // 상태가 suspended이면 사용자 인터랙션이 필요
-        if (audioCtx.state === "suspended") {
-          console.log("Audio context is suspended. User interaction needed.");
-        }
-      } catch (error) {
-        console.error("Audio API not supported or error:", error);
-      }
-    };
-
-    checkAudioPermission();
-  }, []);
 
   // Coming Soon 표시 (레벨 3-5)
   if (levelData.isComingSoon) {
