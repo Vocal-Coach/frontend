@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertTriangle, Mic, MicOff, Award } from "lucide-react";
-import { levels } from "@/lib/levelsData";
 import PracticePageLayout from "@/components/features/practice/PracticePageLayout";
 import PitchStaff from "@/components/features/practice/PitchStaff";
 import ScoreDisplay from "@/components/features/practice/ScoreDisplay";
@@ -16,13 +15,9 @@ import {
   calculateCurrentNoteIndex,
   calculateProgress,
 } from "@/lib/animation/animationUtils";
-import {
-  requestMicrophoneAccess,
-  setupPitchDetection,
-  evaluateVocalPerformance,
-} from "@/lib/evaluation/evaluationUtils";
+import { evaluateVocalPerformance } from "@/lib/evaluation/evaluationUtils";
 import { useLevelData } from "@/hooks/useLevelData";
-
+import { useMicrophone } from "@/hooks/useMicrophone";
 interface PracticePageProps {
   params: {
     levelId: string;
@@ -37,7 +32,6 @@ export default function PracticePage({ params }: PracticePageProps) {
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const lastPlayedNoteRef = useRef<number>(-1);
-  const micCleanupRef = useRef<(() => void) | null>(null);
 
   // 상태 관리
   const [selectedRange, setSelectedRange] = useState<string>("female");
@@ -47,8 +41,6 @@ export default function PracticePage({ params }: PracticePageProps) {
   });
 
   // 마이크 관련 상태
-  const [hasMicPermission, setHasMicPermission] = useState<boolean>(false);
-  const [isMicActive, setIsMicActive] = useState<boolean>(false);
   const [currentFrequency, setCurrentFrequency] = useState<number | null>(null);
   const [lastEvaluationTime, setLastEvaluationTime] = useState<number>(0);
   const [scoreFlash, setScoreFlash] = useState<boolean>(false);
@@ -65,6 +57,40 @@ export default function PracticePage({ params }: PracticePageProps) {
     beatDuration,
     rangeOptions,
   } = useLevelData(levelId);
+
+  const handlePitchDetected = useCallback(
+    (frequency: number, audioData: Float32Array) => {
+      setCurrentFrequency(frequency);
+
+      if (animationState.isPlaying && levelData?.scale) {
+        const currentTime = performance.now();
+        const currentNoteIndex = Math.floor(
+          (currentTime - startTimeRef.current) / 1000 / beatDuration
+        );
+
+        if (
+          currentNoteIndex >= 0 &&
+          currentNoteIndex < levelData.scale.length
+        ) {
+          const expectedNote = levelData.scale[currentNoteIndex];
+
+          if (currentTime - lastEvaluationTime > 500) {
+            evaluateUserVoice(expectedNote, frequency, audioData);
+            setLastEvaluationTime(currentTime);
+          }
+        }
+      }
+    },
+    [
+      animationState.isPlaying,
+      levelData?.scale,
+      beatDuration,
+      lastEvaluationTime,
+    ]
+  );
+
+  const { isMicActive, hasMicPermission, toggleMicrophone } =
+    useMicrophone(handlePitchDetected);
 
   // 모든 음표 초기화
   useEffect(() => {
@@ -88,65 +114,6 @@ export default function PracticePage({ params }: PracticePageProps) {
   if (!levelData) {
     return <div>Level not found</div>;
   }
-
-  // 마이크 액세스 설정
-  const setupMicrophone = async () => {
-    try {
-      const stream = await requestMicrophoneAccess();
-      if (!stream) {
-        console.error("마이크 액세스 실패");
-        return null;
-      }
-
-      setHasMicPermission(true);
-
-      // AudioContext 초기화
-      const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
-      const audioContext = new AudioContextClass();
-
-      // 피치 감지 설정
-      const cleanup = setupPitchDetection(
-        audioContext,
-        stream,
-        handlePitchDetected
-      );
-
-      // 정리 함수 반환
-      return () => {
-        cleanup();
-        stream.getTracks().forEach((track) => track.stop());
-      };
-    } catch (error) {
-      console.error("마이크 설정 오류:", error);
-      return null;
-    }
-  };
-
-  // 피치 감지 핸들러
-  const handlePitchDetected = (frequency: number, audioData: Float32Array) => {
-    // 현재 주파수 업데이트
-    setCurrentFrequency(frequency);
-
-    // 재생 중이고 현재 음표가 있을 때만 평가
-    if (animationState.isPlaying && levelData.scale) {
-      const currentTime = performance.now();
-      const currentNoteIndex = Math.floor(
-        (currentTime - startTimeRef.current) / 1000 / beatDuration
-      );
-
-      // 현재 재생 중인 음표
-      if (currentNoteIndex >= 0 && currentNoteIndex < levelData.scale.length) {
-        const expectedNote = levelData.scale[currentNoteIndex];
-
-        // 500ms마다 평가 (너무 자주 평가하지 않도록)
-        if (currentTime - lastEvaluationTime > 500) {
-          evaluateUserVoice(expectedNote, frequency, audioData);
-          setLastEvaluationTime(currentTime);
-        }
-      }
-    }
-  };
 
   // 사용자 음성 평가
   const evaluateUserVoice = (
@@ -175,27 +142,6 @@ export default function PracticePage({ params }: PracticePageProps) {
       // 점수 플래시 효과
       setScoreFlash(true);
       setTimeout(() => setScoreFlash(false), 500);
-    }
-  };
-
-  // 마이크 활성화/비활성화 토글
-  const toggleMicrophone = async () => {
-    if (isMicActive) {
-      // 마이크 비활성화
-      setIsMicActive(false);
-      if (micCleanupRef.current) {
-        micCleanupRef.current();
-        micCleanupRef.current = null;
-      }
-    } else {
-      // 마이크 활성화
-      setIsMicActive(true);
-      if (!hasMicPermission || !micCleanupRef.current) {
-        const cleanup = await setupMicrophone();
-        if (cleanup) {
-          micCleanupRef.current = cleanup;
-        }
-      }
     }
   };
 
@@ -369,9 +315,6 @@ export default function PracticePage({ params }: PracticePageProps) {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (micCleanupRef.current) {
-        micCleanupRef.current();
       }
       cleanupAudio();
     };
