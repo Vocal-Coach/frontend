@@ -8,7 +8,7 @@ interface NoteFrequencies {
 }
 
 // 옥타브별 음 주파수 매핑 (C0부터 B8까지)
-const NOTE_FREQUENCIES: NoteFrequencies = {
+export const NOTE_FREQUENCIES: NoteFrequencies = {
   // 옥타브 3 (남성 목소리 대략적인 범위)
   'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
   // 옥타브 4 (여성 목소리 대략적인 범위 시작)

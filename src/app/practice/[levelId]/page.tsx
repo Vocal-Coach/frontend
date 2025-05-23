@@ -111,7 +111,8 @@ export default function PracticePage({ params }: PracticePageProps) {
     const evaluationResult = evaluateVocalPerformance(
       expectedNote,
       { frequency, samples: audioData },
-      currentScore
+      currentScore,
+      selectedRange as "male" | "female"
     );
 
     // 점수가 변경되었다면 점수 업데이트 및 애니메이션
