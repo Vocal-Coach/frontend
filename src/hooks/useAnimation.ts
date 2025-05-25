@@ -113,7 +113,10 @@ export const useAnimation = ({
       setAnimationState((prev) => ({
         ...prev,
         currentNoteIndex,
-        progress: calculateProgress(currentNoteIndex, levelData.scale.length),
+        progress: calculateProgress(
+          currentNoteIndex,
+          levelData.scale.length || 1
+        ),
         currentTime: elapsedSeconds,
       }));
 
