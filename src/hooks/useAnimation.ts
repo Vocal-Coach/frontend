@@ -39,6 +39,9 @@ export const useAnimation = ({
   const lastPlayedNoteRef = useRef<number>(-1);
   const isPausedRef = useRef<boolean>(false);
   const lastPlayedTimeRef = useRef<number>(0);
+  const pausedProgressRef = useRef<number>(0);
+  const pausedNoteIndexRef = useRef<number>(0);
+  const pausedElapsedTimeRef = useRef<number>(0);
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     ...initialAnimationState,
@@ -66,32 +69,48 @@ export const useAnimation = ({
     (timestamp: number) => {
       if (!animationFrameRef.current || !levelData?.scale) return;
 
+      if (isPausedRef.current) {
+        animationFrameRef.current = null;
+        return;
+      }
+
       if (startTimeRef.current === 0) {
-        startTimeRef.current = timestamp - (pauseTimeRef.current || 0);
-        lastPlayedTimeRef.current = timestamp - (pauseTimeRef.current || 0);
+        if (pauseTimeRef.current > 0) {
+          startTimeRef.current = timestamp - pauseTimeRef.current;
+          lastPlayedNoteRef.current = pausedNoteIndexRef.current;
+          lastPlayedTimeRef.current = timestamp - pauseTimeRef.current;
+        } else {
+          startTimeRef.current = timestamp;
+          lastPlayedTimeRef.current = timestamp;
+        }
       }
 
       const elapsedSeconds = (timestamp - startTimeRef.current) / 1000;
-      const currentNoteIndex = Math.floor(elapsedSeconds / beatDuration);
+      const rawNoteIndex = Math.floor(elapsedSeconds / beatDuration);
+      const currentNoteIndex = rawNoteIndex < 0 ? -1 : rawNoteIndex;
 
-      const notePositionPercent =
-        ((elapsedSeconds % beatDuration) / beatDuration) * 100;
+      if (currentNoteIndex !== lastPlayedNoteRef.current) {
+        const notePositionPercent =
+          ((elapsedSeconds % beatDuration) / beatDuration) * 100;
+        const timeSinceLastPlay = timestamp - lastPlayedTimeRef.current;
+        const minTimeBetweenNotes = beatDuration * 1000 * 0.25;
 
-      const timeSinceLastPlay = timestamp - lastPlayedTimeRef.current;
-      const minTimeBetweenNotes = beatDuration * 1000 * 0.25;
-
-      if (
-        currentNoteIndex !== lastPlayedNoteRef.current &&
-        notePositionPercent >= 25 &&
-        notePositionPercent <= 35 &&
-        currentNoteIndex >= 0 &&
-        currentNoteIndex < levelData.scale.length &&
-        timeSinceLastPlay >= minTimeBetweenNotes
-      ) {
-        const note = levelData.scale[currentNoteIndex];
-        playTone(note, selectedRange as "male" | "female", beatDuration * 0.9);
-        lastPlayedNoteRef.current = currentNoteIndex;
-        lastPlayedTimeRef.current = timestamp;
+        if (
+          notePositionPercent >= 25 &&
+          notePositionPercent <= 35 &&
+          currentNoteIndex >= 0 &&
+          currentNoteIndex < levelData.scale.length &&
+          timeSinceLastPlay >= minTimeBetweenNotes
+        ) {
+          const note = levelData.scale[currentNoteIndex];
+          playTone(
+            note,
+            selectedRange as "male" | "female",
+            beatDuration * 0.9
+          );
+          lastPlayedNoteRef.current = currentNoteIndex;
+          lastPlayedTimeRef.current = timestamp;
+        }
       }
 
       const updatedVisibleNotes = allNotes
@@ -110,13 +129,19 @@ export const useAnimation = ({
         .filter((note) => note.positionClass !== "hidden");
 
       setVisibleNotes(updatedVisibleNotes);
+
+      let currentProgress = 0;
+      if (currentNoteIndex >= 0) {
+        currentProgress = calculateProgress(
+          currentNoteIndex,
+          levelData.scale.length || 1
+        );
+      }
+
       setAnimationState((prev) => ({
         ...prev,
         currentNoteIndex,
-        progress: calculateProgress(
-          currentNoteIndex,
-          levelData.scale.length || 1
-        ),
+        progress: currentProgress,
         currentTime: elapsedSeconds,
       }));
 
@@ -133,6 +158,9 @@ export const useAnimation = ({
         isPausedRef.current = false;
         pauseTimeRef.current = 0;
         lastPlayedTimeRef.current = 0;
+        pausedProgressRef.current = 0;
+        pausedNoteIndexRef.current = 0;
+        pausedElapsedTimeRef.current = 0;
       }
     },
     [allNotes, beatDuration, levelData?.scale, selectedRange, tempo]
@@ -147,6 +175,8 @@ export const useAnimation = ({
         ...prev,
         isPlaying: true,
         isPaused: false,
+        progress: pausedProgressRef.current,
+        currentNoteIndex: pausedNoteIndexRef.current,
       }));
     } else {
       setAnimationState((prev) => ({
@@ -161,6 +191,9 @@ export const useAnimation = ({
       pauseTimeRef.current = 0;
       lastPlayedNoteRef.current = -1;
       lastPlayedTimeRef.current = 0;
+      pausedProgressRef.current = 0;
+      pausedNoteIndexRef.current = 0;
+      pausedElapsedTimeRef.current = 0;
     }
 
     animationFrameRef.current = requestAnimationFrame(animateFrame);
@@ -174,15 +207,26 @@ export const useAnimation = ({
 
     const currentElapsedTime =
       (performance.now() - startTimeRef.current) / 1000;
+    const currentNoteIndex = Math.floor(currentElapsedTime / beatDuration);
+
     pauseTimeRef.current = currentElapsedTime;
+    pausedElapsedTimeRef.current = currentElapsedTime;
+    pausedNoteIndexRef.current = currentNoteIndex;
+    pausedProgressRef.current = calculateProgress(
+      currentNoteIndex,
+      levelData?.scale?.length || 1
+    );
+
     isPausedRef.current = true;
 
     setAnimationState((prev) => ({
       ...prev,
       isPlaying: false,
       isPaused: true,
+      progress: pausedProgressRef.current,
+      currentNoteIndex: pausedNoteIndexRef.current,
     }));
-  }, []);
+  }, [beatDuration, levelData?.scale?.length]);
 
   const handleRestartClick = useCallback(() => {
     stopAnimation();
@@ -213,6 +257,9 @@ export const useAnimation = ({
     startTimeRef.current = 0;
     lastPlayedNoteRef.current = -1;
     lastPlayedTimeRef.current = 0;
+    pausedProgressRef.current = 0;
+    pausedNoteIndexRef.current = 0;
+    pausedElapsedTimeRef.current = 0;
 
     setAnimationState((prev) => ({
       ...initialAnimationState,
