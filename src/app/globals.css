@@ -19,77 +19,77 @@ body {
 /* 낮은 음 -> 높은 음 순서로 위로 올라가는 형태 */
 .p1-do,
 .p2-do {
-  bottom: 20%;
+  bottom: 10%;
 } /* 도 (가장 낮은 음) */
 .p1-re,
 .p2-re {
-  bottom: 30%;
+  bottom: 20%;
 } /* 레 */
 .p1-mi,
 .p2-mi {
-  bottom: 40%;
+  bottom: 30%;
 } /* 미 */
 .p1-fa,
 .p2-fa {
-  bottom: 50%;
+  bottom: 40%;
 } /* 파 */
 .p1-so,
 .p2-so {
-  bottom: 60%;
+  bottom: 50%;
 } /* 솔 */
 .p1-la,
 .p2-la {
-  bottom: 70%;
+  bottom: 60%;
 } /* 라 */
 .p1-ti,
 .p2-ti {
-  bottom: 80%;
+  bottom: 70%;
 } /* 시 */
 .p1-do2,
 .p2-do2 {
-  bottom: 90%;
+  bottom: 80%;
 } /* 높은 도 */
 
 /* 향후 레벨에 대비한 추가 음표 위치 */
 .p3-do,
 .p4-do,
 .p5-do {
-  bottom: 20%;
+  bottom: 10%;
 } /* 도 */
 .p3-re,
 .p4-re,
 .p5-re {
-  bottom: 30%;
+  bottom: 20%;
 } /* 레 */
 .p3-mi,
 .p4-mi,
 .p5-mi {
-  bottom: 40%;
+  bottom: 30%;
 } /* 미 */
 .p3-fa,
 .p4-fa,
 .p5-fa {
-  bottom: 50%;
+  bottom: 40%;
 } /* 파 */
 .p3-so,
 .p4-so,
 .p5-so {
-  bottom: 60%;
+  bottom: 50%;
 } /* 솔 */
 .p3-la,
 .p4-la,
 .p5-la {
-  bottom: 70%;
+  bottom: 60%;
 } /* 라 */
 .p3-ti,
 .p4-ti,
 .p5-ti {
-  bottom: 80%;
+  bottom: 70%;
 } /* 시 */
 .p3-do2,
 .p4-do2,
 .p5-do2 {
-  bottom: 90%;
+  bottom: 80%;
 } /* 높은 도 */
 
 /* Note styles */
