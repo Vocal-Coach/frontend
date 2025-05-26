@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import PracticeHeader from './PracticeHeader';
-import RangeSelector from './RangeSelector';
-import PracticeControlsFooter from './PracticeControlsFooter';
+import React from "react";
+import PracticeHeader from "./PracticeHeader";
+import RangeSelector from "./RangeSelector";
+import PracticeControlsFooter from "./PracticeControlsFooter";
 
 interface RangeOption {
   label: string;
@@ -20,7 +20,9 @@ interface PracticePageLayoutProps {
   onPlayPauseClick: () => void;
   onRestartClick: () => void;
   onStopClick: () => void;
-  progressPercent: number;
+  currentNoteIndex: number;
+  totalNotes: number;
+  currentNoteProgress: number;
   onBackClick: () => void;
 }
 
@@ -34,26 +36,28 @@ const PracticePageLayout: React.FC<PracticePageLayoutProps> = ({
   onPlayPauseClick,
   onRestartClick,
   onStopClick,
-  progressPercent,
+  currentNoteIndex,
+  totalNotes,
+  currentNoteProgress,
   onBackClick,
 }) => {
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <PracticeHeader title={levelTitle} onBackClick={onBackClick} />
-      
+
       {/* 범위 선택기 */}
       <RangeSelector
         options={rangeOptions}
         selectedValue={selectedRange}
         onChange={onRangeChange}
       />
-      
+
       {/* 메인 컨텐츠 영역 */}
       <div className="core-practice-area-light bg-white flex-1 flex flex-col items-center justify-between py-2 overflow-auto">
         {children}
       </div>
-      
+
       {/* 하단 컨트롤 */}
       <div className="mt-auto">
         <PracticeControlsFooter
@@ -61,7 +65,9 @@ const PracticePageLayout: React.FC<PracticePageLayoutProps> = ({
           onPlayPauseClick={onPlayPauseClick}
           onRestartClick={onRestartClick}
           onStopClick={onStopClick}
-          progressPercent={progressPercent}
+          currentNoteIndex={currentNoteIndex}
+          totalNotes={totalNotes}
+          currentNoteProgress={currentNoteProgress}
         />
       </div>
     </div>

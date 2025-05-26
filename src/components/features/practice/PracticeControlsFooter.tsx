@@ -1,15 +1,17 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Play, Pause, RotateCw, Square } from 'lucide-react';
-import ProgressBar from './ProgressBar';
+import React from "react";
+import { Play, Pause, RotateCw, Square } from "lucide-react";
+import ProgressBar from "./ProgressBar";
 
 interface PracticeControlsFooterProps {
   isPlaying: boolean;
   onPlayPauseClick: () => void;
   onRestartClick: () => void;
   onStopClick: () => void;
-  progressPercent: number;
+  currentNoteIndex: number;
+  totalNotes: number;
+  currentNoteProgress: number;
 }
 
 const PracticeControlsFooter: React.FC<PracticeControlsFooterProps> = ({
@@ -17,12 +19,18 @@ const PracticeControlsFooter: React.FC<PracticeControlsFooterProps> = ({
   onPlayPauseClick,
   onRestartClick,
   onStopClick,
-  progressPercent,
+  currentNoteIndex,
+  totalNotes,
+  currentNoteProgress,
 }) => {
   return (
     <div className="p-2 practice-footer-light bg-white border-t border-gray-200">
-      <ProgressBar percent={progressPercent} />
-      
+      <ProgressBar
+        currentNoteIndex={currentNoteIndex}
+        totalNotes={totalNotes}
+        currentNoteProgress={currentNoteProgress}
+      />
+
       <div className="practice-footer-controls flex items-center justify-between px-4 py-1">
         <button
           className="control-button control-button-light restart restart-button-light p-2 rounded-full hover:bg-gray-100"
@@ -31,7 +39,7 @@ const PracticeControlsFooter: React.FC<PracticeControlsFooterProps> = ({
         >
           <RotateCw className="w-5 h-5 text-gray-600" />
         </button>
-        
+
         <div className="flex-grow flex justify-center">
           <button
             className="control-button play-pause play-pause-light bg-indigo-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
@@ -45,7 +53,7 @@ const PracticeControlsFooter: React.FC<PracticeControlsFooterProps> = ({
             )}
           </button>
         </div>
-        
+
         <button
           className="control-button control-button-light stop stop-button-light p-2 rounded-full hover:bg-red-50"
           title="Stop"

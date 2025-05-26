@@ -43,6 +43,7 @@ export const useAnimation = ({
   const pausedElapsedTimeRef = useRef<number>(0);
   const lastPauseTimeRef = useRef<number>(0);
   const totalPausedTimeRef = useRef<number>(0);
+  const isTransitioningRef = useRef<boolean>(false);
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     ...initialAnimationState,
@@ -66,12 +67,25 @@ export const useAnimation = ({
     setAllNotes(noteData);
   }, [levelData?.scale]);
 
+  const cleanupAnimation = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    isTransitioningRef.current = false;
+  }, []);
+
   const animateFrame = useCallback(
     (timestamp: number) => {
       if (!animationFrameRef.current || !levelData?.scale) return;
 
+      if (isTransitioningRef.current) {
+        cleanupAnimation();
+        return;
+      }
+
       if (isPausedRef.current) {
-        animationFrameRef.current = null;
+        cleanupAnimation();
         return;
       }
 
@@ -86,8 +100,33 @@ export const useAnimation = ({
         timestamp - startTimeRef.current - totalPausedTimeRef.current;
       const elapsedSeconds = currentTime / 1000;
 
+      const totalDuration = levelData.scale.length * beatDuration;
+
+      if (elapsedSeconds >= totalDuration) {
+        cleanupAnimation();
+        setAnimationState((prev) => ({
+          ...prev,
+          isPlaying: false,
+          progress: 100,
+          currentNoteIndex: levelData.scale.length - 1,
+        }));
+        isPausedRef.current = false;
+        startTimeRef.current = 0;
+        lastPlayedNoteRef.current = -1;
+        lastPlayedTimeRef.current = 0;
+        pausedProgressRef.current = 0;
+        pausedNoteIndexRef.current = 0;
+        pausedElapsedTimeRef.current = 0;
+        totalPausedTimeRef.current = 0;
+        lastPauseTimeRef.current = 0;
+        return;
+      }
+
       const rawNoteIndex = Math.floor(elapsedSeconds / beatDuration);
-      const currentNoteIndex = rawNoteIndex < 0 ? -1 : rawNoteIndex;
+      const currentNoteIndex = Math.min(
+        rawNoteIndex,
+        levelData.scale.length - 1
+      );
 
       if (currentNoteIndex !== lastPlayedNoteRef.current) {
         const notePositionPercent =
@@ -130,46 +169,35 @@ export const useAnimation = ({
 
       setVisibleNotes(updatedVisibleNotes);
 
-      let currentProgress = 0;
-      if (currentNoteIndex >= 0) {
-        currentProgress = calculateProgress(
-          currentNoteIndex,
-          levelData.scale.length || 1
-        );
-      }
+      // 현재 음표 내에서의 진행도 계산 (0-100)
+      const currentNoteProgress =
+        currentNoteIndex >= 0
+          ? ((elapsedSeconds % beatDuration) / beatDuration) * 100
+          : 0;
 
       setAnimationState((prev) => ({
         ...prev,
         currentNoteIndex,
-        progress: currentProgress,
+        progress: currentNoteProgress, // 이제 현재 음표의 진행도를 저장
         currentTime: elapsedSeconds,
       }));
 
-      const totalDuration = (levelData.scale.length + 2) * beatDuration;
-      if (elapsedSeconds < totalDuration) {
-        animationFrameRef.current = requestAnimationFrame(animateFrame);
-      } else {
-        setAnimationState((prev) => ({
-          ...prev,
-          isPlaying: false,
-          progress: 100,
-        }));
-        animationFrameRef.current = null;
-        isPausedRef.current = false;
-        startTimeRef.current = 0;
-        lastPlayedTimeRef.current = 0;
-        pausedProgressRef.current = 0;
-        pausedNoteIndexRef.current = 0;
-        pausedElapsedTimeRef.current = 0;
-        totalPausedTimeRef.current = 0;
-        lastPauseTimeRef.current = 0;
-      }
+      animationFrameRef.current = requestAnimationFrame(animateFrame);
     },
-    [allNotes, beatDuration, levelData?.scale, selectedRange, tempo]
+    [
+      allNotes,
+      beatDuration,
+      levelData?.scale,
+      selectedRange,
+      tempo,
+      cleanupAnimation,
+    ]
   );
 
   const startAnimation = useCallback(() => {
-    if (animationFrameRef.current) return;
+    if (animationFrameRef.current || isTransitioningRef.current) return;
+
+    isTransitioningRef.current = true;
 
     if (isPausedRef.current) {
       const pauseDuration = performance.now() - lastPauseTimeRef.current;
@@ -202,14 +230,15 @@ export const useAnimation = ({
       lastPauseTimeRef.current = 0;
     }
 
-    animationFrameRef.current = requestAnimationFrame(animateFrame);
+    requestAnimationFrame(() => {
+      isTransitioningRef.current = false;
+      animationFrameRef.current = requestAnimationFrame(animateFrame);
+    });
   }, [animateFrame]);
 
   const stopAnimation = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
+    isTransitioningRef.current = true;
+    cleanupAnimation();
 
     const currentTime =
       performance.now() - startTimeRef.current - totalPausedTimeRef.current;
@@ -225,6 +254,7 @@ export const useAnimation = ({
     );
 
     isPausedRef.current = true;
+    isTransitioningRef.current = false;
 
     setAnimationState((prev) => ({
       ...prev,
@@ -233,7 +263,7 @@ export const useAnimation = ({
       progress: pausedProgressRef.current,
       currentNoteIndex: pausedNoteIndexRef.current,
     }));
-  }, [beatDuration, levelData?.scale?.length]);
+  }, [beatDuration, levelData?.scale?.length, cleanupAnimation]);
 
   const handleRestartClick = useCallback(() => {
     stopAnimation();
@@ -253,10 +283,8 @@ export const useAnimation = ({
   }, [startAnimation, stopAnimation]);
 
   const handleStopClick = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
+    isTransitioningRef.current = true;
+    cleanupAnimation();
 
     isPausedRef.current = false;
     startTimeRef.current = 0;
@@ -267,6 +295,7 @@ export const useAnimation = ({
     pausedElapsedTimeRef.current = 0;
     totalPausedTimeRef.current = 0;
     lastPauseTimeRef.current = 0;
+    isTransitioningRef.current = false;
 
     setAnimationState((prev) => ({
       ...initialAnimationState,
@@ -278,7 +307,7 @@ export const useAnimation = ({
       positionClass: "note-position-0",
     }));
     setVisibleNotes(resetNotes.slice(0, 3));
-  }, [allNotes]);
+  }, [allNotes, cleanupAnimation]);
 
   const updateScore = useCallback((newScore: number) => {
     setAnimationState((prev) => ({ ...prev, score: newScore }));
@@ -286,12 +315,9 @@ export const useAnimation = ({
 
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      cleanupAudio();
+      cleanupAnimation();
     };
-  }, []);
+  }, [cleanupAnimation]);
 
   return {
     animationState,

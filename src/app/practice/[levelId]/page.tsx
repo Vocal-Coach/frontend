@@ -196,7 +196,9 @@ export default function PracticePage({ params }: PracticePageProps) {
       onPlayPauseClick={handlePlayPauseClick}
       onRestartClick={handleRestartClick}
       onStopClick={handleStopClick}
-      progressPercent={animationState.progress}
+      currentNoteIndex={animationState.currentNoteIndex}
+      totalNotes={levelData.scale?.length || 0}
+      currentNoteProgress={animationState.progress}
       onBackClick={handleBackClick}
     >
       <div className="w-full max-w-xs text-center mb-1">
