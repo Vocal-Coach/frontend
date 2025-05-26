@@ -35,13 +35,14 @@ export const useAnimation = ({
 }: UseAnimationProps): UseAnimationReturn => {
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pauseTimeRef = useRef<number>(0);
   const lastPlayedNoteRef = useRef<number>(-1);
   const isPausedRef = useRef<boolean>(false);
   const lastPlayedTimeRef = useRef<number>(0);
   const pausedProgressRef = useRef<number>(0);
   const pausedNoteIndexRef = useRef<number>(0);
   const pausedElapsedTimeRef = useRef<number>(0);
+  const lastPauseTimeRef = useRef<number>(0);
+  const totalPausedTimeRef = useRef<number>(0);
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     ...initialAnimationState,
@@ -75,17 +76,16 @@ export const useAnimation = ({
       }
 
       if (startTimeRef.current === 0) {
-        if (pauseTimeRef.current > 0) {
-          startTimeRef.current = timestamp - pauseTimeRef.current;
-          lastPlayedNoteRef.current = pausedNoteIndexRef.current;
-          lastPlayedTimeRef.current = timestamp - pauseTimeRef.current;
-        } else {
-          startTimeRef.current = timestamp;
-          lastPlayedTimeRef.current = timestamp;
-        }
+        startTimeRef.current = timestamp;
+        lastPlayedTimeRef.current = timestamp;
+        totalPausedTimeRef.current = 0;
+        lastPauseTimeRef.current = 0;
       }
 
-      const elapsedSeconds = (timestamp - startTimeRef.current) / 1000;
+      const currentTime =
+        timestamp - startTimeRef.current - totalPausedTimeRef.current;
+      const elapsedSeconds = currentTime / 1000;
+
       const rawNoteIndex = Math.floor(elapsedSeconds / beatDuration);
       const currentNoteIndex = rawNoteIndex < 0 ? -1 : rawNoteIndex;
 
@@ -156,11 +156,13 @@ export const useAnimation = ({
         }));
         animationFrameRef.current = null;
         isPausedRef.current = false;
-        pauseTimeRef.current = 0;
+        startTimeRef.current = 0;
         lastPlayedTimeRef.current = 0;
         pausedProgressRef.current = 0;
         pausedNoteIndexRef.current = 0;
         pausedElapsedTimeRef.current = 0;
+        totalPausedTimeRef.current = 0;
+        lastPauseTimeRef.current = 0;
       }
     },
     [allNotes, beatDuration, levelData?.scale, selectedRange, tempo]
@@ -170,6 +172,9 @@ export const useAnimation = ({
     if (animationFrameRef.current) return;
 
     if (isPausedRef.current) {
+      const pauseDuration = performance.now() - lastPauseTimeRef.current;
+      totalPausedTimeRef.current += pauseDuration;
+
       isPausedRef.current = false;
       setAnimationState((prev) => ({
         ...prev,
@@ -188,12 +193,13 @@ export const useAnimation = ({
         currentTime: 0,
       }));
       startTimeRef.current = 0;
-      pauseTimeRef.current = 0;
       lastPlayedNoteRef.current = -1;
       lastPlayedTimeRef.current = 0;
       pausedProgressRef.current = 0;
       pausedNoteIndexRef.current = 0;
       pausedElapsedTimeRef.current = 0;
+      totalPausedTimeRef.current = 0;
+      lastPauseTimeRef.current = 0;
     }
 
     animationFrameRef.current = requestAnimationFrame(animateFrame);
@@ -205,11 +211,12 @@ export const useAnimation = ({
       animationFrameRef.current = null;
     }
 
-    const currentElapsedTime =
-      (performance.now() - startTimeRef.current) / 1000;
+    const currentTime =
+      performance.now() - startTimeRef.current - totalPausedTimeRef.current;
+    const currentElapsedTime = currentTime / 1000;
     const currentNoteIndex = Math.floor(currentElapsedTime / beatDuration);
 
-    pauseTimeRef.current = currentElapsedTime;
+    lastPauseTimeRef.current = performance.now();
     pausedElapsedTimeRef.current = currentElapsedTime;
     pausedNoteIndexRef.current = currentNoteIndex;
     pausedProgressRef.current = calculateProgress(
@@ -231,7 +238,6 @@ export const useAnimation = ({
   const handleRestartClick = useCallback(() => {
     stopAnimation();
     isPausedRef.current = false;
-    pauseTimeRef.current = 0;
     startTimeRef.current = 0;
     lastPlayedNoteRef.current = -1;
     lastPlayedTimeRef.current = 0;
@@ -253,13 +259,14 @@ export const useAnimation = ({
     }
 
     isPausedRef.current = false;
-    pauseTimeRef.current = 0;
     startTimeRef.current = 0;
     lastPlayedNoteRef.current = -1;
     lastPlayedTimeRef.current = 0;
     pausedProgressRef.current = 0;
     pausedNoteIndexRef.current = 0;
     pausedElapsedTimeRef.current = 0;
+    totalPausedTimeRef.current = 0;
+    lastPauseTimeRef.current = 0;
 
     setAnimationState((prev) => ({
       ...initialAnimationState,
