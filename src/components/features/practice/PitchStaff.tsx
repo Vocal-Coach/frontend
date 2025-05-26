@@ -50,21 +50,26 @@ const PitchStaff: React.FC<PitchStaffProps> = ({
     return indexA - indexB;
   });
 
-  // 동적으로 음표 위치 계산
-  const calculateNotePosition = (noteText: string): number => {
-    const noteIndex = sortedNotes.indexOf(noteText);
-    const totalNotes = sortedNotes.length;
+  // 그래프 전체의 수직 오프셋 계산 (잘리는 부분만 조정)
+  const calculateGraphOffset = (): number => {
+    if (sortedNotes.length === 0) return 0;
 
-    // 상하 마진을 더 크게 하여 음표들을 중앙에 더 가깝게 배치
-    const topMargin = 25;
-    const bottomMargin = 25;
-    const availableSpace = 100 - topMargin - bottomMargin; // 50%만 사용
+    // 가장 높은 음의 인덱스 확인
+    const highestNoteIndex = noteOrder.indexOf(
+      sortedNotes[sortedNotes.length - 1]
+    );
 
-    // 음표들 사이의 간격 계산
-    const spacing = totalNotes > 1 ? availableSpace / (totalNotes - 1) : 0;
+    // Do2 (인덱스 7) 이상의 높은 음들만 체크
+    if (highestNoteIndex > 7) {
+      // 잘릴 수 있는 높은 음의 개수 계산
+      const notesAboveDo2 = highestNoteIndex - 7;
 
-    // bottom 위치 계산 (가장 낮은 음이 bottomMargin에서 시작)
-    return bottomMargin + noteIndex * spacing;
+      // 각 음표당 25px씩 아래로 이동하여 높은 음들이 보이도록 조정
+      return notesAboveDo2 * 25;
+    }
+
+    // Do2 이하의 음표들은 그래프 이동 없음
+    return 0;
   };
 
   // 희미한 수직 점선 생성 함수
@@ -83,46 +88,53 @@ const PitchStaff: React.FC<PitchStaffProps> = ({
     return lines;
   };
 
-  // 수평선 생성 함수 (동적으로 음표 위치에 맞춰 생성)
+  // 수평선 생성 함수 (고정된 위치)
   const renderHorizontalLines = (): JSX.Element[] => {
     const lines: JSX.Element[] = [];
-    sortedNotes.forEach((note, index) => {
-      const position = 100 - calculateNotePosition(note); // top 위치로 변환
+    for (let i = 1; i < 8; i++) {
+      const position = i * 12.5; // 12.5%, 25%, 37.5%, ... 87.5%
       lines.push(
         <div
-          key={`hline-${note}`}
+          key={`hline-${i}`}
           className="absolute left-0 right-0 h-px bg-gray-200 opacity-30"
           style={{ top: `${position}%` }}
         />
       );
-    });
+    }
     return lines;
   };
 
+  const graphOffset = calculateGraphOffset();
+
   return (
-    <div className="pitch-staff rounded-xl p-2 relative h-[220px] w-full max-w-xs mx-auto">
-      {/* 수직 점선 그리드 */}
-      {renderVerticalDottedLines()}
+    <div className="pitch-staff rounded-xl p-2 relative h-[220px] w-full max-w-xs mx-auto overflow-hidden">
+      {/* 그래프 컨테이너 (오프셋 적용) */}
+      <div
+        className="absolute inset-0 transition-transform duration-300 ease-out"
+        style={{ transform: `translateY(${graphOffset}px)` }}
+      >
+        {/* 수직 점선 그리드 */}
+        {renderVerticalDottedLines()}
 
-      {/* 수평선 그리드 (동적) */}
-      {renderHorizontalLines()}
+        {/* 수평선 그리드 (고정) */}
+        {renderHorizontalLines()}
 
-      {/* 타겟 라인 (점선) */}
-      {targetLineVisible && (
-        <div className="target-line absolute left-[30%] top-0 bottom-0"></div>
-      )}
+        {/* 타겟 라인 (점선) */}
+        {targetLineVisible && (
+          <div className="target-line absolute left-[30%] top-0 bottom-0"></div>
+        )}
 
-      {/* 음표 (동적 위치 적용) */}
-      {notesToDisplay.map((note, index) => (
-        <NoteRect
-          key={`${index}-${note.text}`}
-          text={note.text}
-          pitchClass={note.pitchClass}
-          durationClass={note.durationClass}
-          positionClass={note.positionClass}
-          dynamicBottomPosition={calculateNotePosition(note.text)}
-        />
-      ))}
+        {/* 음표 (원래 CSS 위치 사용) */}
+        {notesToDisplay.map((note, index) => (
+          <NoteRect
+            key={`${index}-${note.text}`}
+            text={note.text}
+            pitchClass={note.pitchClass}
+            durationClass={note.durationClass}
+            positionClass={note.positionClass}
+          />
+        ))}
+      </div>
 
       {/* 피치 경로 라인 (선택적) */}
       {pitchPathData}
