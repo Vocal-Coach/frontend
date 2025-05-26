@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertTriangle, Mic, MicOff, Award } from "lucide-react";
 import PracticePageLayout from "@/components/features/practice/PracticePageLayout";
@@ -22,6 +22,8 @@ export default function PracticePage({ params }: PracticePageProps) {
   const router = useRouter();
   const levelId = parseInt(params.levelId);
   const startTimeRef = useRef<number>(0);
+  const scoreFlashTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rangeChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 상태 관리
   const [selectedRange, setSelectedRange] = useState<string>("female");
@@ -94,6 +96,18 @@ export default function PracticePage({ params }: PracticePageProps) {
   const { isMicActive, hasMicPermission, toggleMicrophone } =
     useMicrophone(handlePitchDetected);
 
+  // 컴포넌트 언마운트 시 timeout 정리
+  useEffect(() => {
+    return () => {
+      if (scoreFlashTimeoutRef.current) {
+        clearTimeout(scoreFlashTimeoutRef.current);
+      }
+      if (rangeChangeTimeoutRef.current) {
+        clearTimeout(rangeChangeTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // 레벨 없으면 오류 표시
   if (!levelData) {
     return <div>Level not found</div>;
@@ -122,7 +136,16 @@ export default function PracticePage({ params }: PracticePageProps) {
 
       // 점수 플래시 효과
       setScoreFlash(true);
-      setTimeout(() => setScoreFlash(false), 500);
+
+      // 이전 timeout이 있다면 정리
+      if (scoreFlashTimeoutRef.current) {
+        clearTimeout(scoreFlashTimeoutRef.current);
+      }
+
+      scoreFlashTimeoutRef.current = setTimeout(
+        () => setScoreFlash(false),
+        500
+      );
     }
   };
 
@@ -134,7 +157,13 @@ export default function PracticePage({ params }: PracticePageProps) {
     const wasPlaying = animationState.isPlaying;
     if (wasPlaying) {
       stopAnimation();
-      setTimeout(() => {
+
+      // 이전 timeout이 있다면 정리
+      if (rangeChangeTimeoutRef.current) {
+        clearTimeout(rangeChangeTimeoutRef.current);
+      }
+
+      rangeChangeTimeoutRef.current = setTimeout(() => {
         startAnimation();
       }, 100);
     }

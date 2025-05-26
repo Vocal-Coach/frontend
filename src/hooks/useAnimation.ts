@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { playTone, cleanupAudio } from "@/lib/audio/audioUtils";
+import { playTone, clearSequence } from "@/lib/audio/audioUtils";
 import {
   initialAnimationState,
   AnimationState,
@@ -45,6 +45,7 @@ export const useAnimation = ({
   const lastPauseTimeRef = useRef<number>(0);
   const totalPausedTimeRef = useRef<number>(0);
   const isTransitioningRef = useRef<boolean>(false);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     ...initialAnimationState,
@@ -73,6 +74,12 @@ export const useAnimation = ({
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+    // 진행 중인 오디오 시퀀스도 정리
+    clearSequence();
     isTransitioningRef.current = false;
   }, []);
 
@@ -278,7 +285,7 @@ export const useAnimation = ({
       score: prev.score,
     }));
 
-    setTimeout(() => {
+    restartTimeoutRef.current = setTimeout(() => {
       startAnimation();
     }, 100);
   }, [startAnimation, stopAnimation]);
