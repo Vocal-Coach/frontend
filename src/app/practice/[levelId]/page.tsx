@@ -52,6 +52,7 @@ export default function PracticePage({ params }: PracticePageProps) {
         ? {
             scale: levelData.scale,
             title: levelData.title,
+            id: levelData.id,
           }
         : null,
     tempo,

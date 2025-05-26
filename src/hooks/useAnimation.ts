@@ -11,6 +11,7 @@ interface UseAnimationProps {
   levelData: {
     scale: string[];
     title: string;
+    id: number;
   } | null;
   tempo: number;
   beatDuration: number;
@@ -59,13 +60,13 @@ export const useAnimation = ({
     const noteData = levelData.scale.map((note, index) => ({
       id: index,
       text: note,
-      pitchClass: `p-${note.toLowerCase()}`,
+      pitchClass: `p${levelData.id}-${note.toLowerCase()}`,
       durationClass: "note-duration-medium",
       positionClass: "note-position-0",
     }));
 
     setAllNotes(noteData);
-  }, [levelData?.scale]);
+  }, [levelData?.scale, levelData?.id]);
 
   const cleanupAnimation = useCallback(() => {
     if (animationFrameRef.current) {
