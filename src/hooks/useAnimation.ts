@@ -1,11 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { playTone, cleanupAudio } from "@/lib/audio/audioUtils";
+import {
+  playTone,
+  clearSequence,
+  setGlobalAudioContext,
+} from "@/lib/audio/audioUtils";
 import {
   initialAnimationState,
   AnimationState,
   calculateNotePosition,
   calculateProgress,
 } from "@/lib/animation/animationUtils";
+import { useAudioContext } from "./useAudioContext";
 
 interface UseAnimationProps {
   levelData: {
@@ -45,6 +50,9 @@ export const useAnimation = ({
   const lastPauseTimeRef = useRef<number>(0);
   const totalPausedTimeRef = useRef<number>(0);
   const isTransitioningRef = useRef<boolean>(false);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const { audioContext, initializeAudioContext } = useAudioContext();
 
   const [animationState, setAnimationState] = useState<AnimationState>({
     ...initialAnimationState,
@@ -68,11 +76,24 @@ export const useAnimation = ({
     setAllNotes(noteData);
   }, [levelData?.scale, levelData?.id]);
 
+  // AudioContext를 전역으로 설정
+  useEffect(() => {
+    if (audioContext) {
+      setGlobalAudioContext(audioContext);
+    }
+  }, [audioContext]);
+
   const cleanupAnimation = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+    // 진행 중인 오디오 시퀀스도 정리
+    clearSequence();
     isTransitioningRef.current = false;
   }, []);
 
@@ -195,10 +216,15 @@ export const useAnimation = ({
     ]
   );
 
-  const startAnimation = useCallback(() => {
+  const startAnimation = useCallback(async () => {
     if (animationFrameRef.current || isTransitioningRef.current) return;
 
     isTransitioningRef.current = true;
+
+    // AudioContext 초기화
+    if (!audioContext) {
+      await initializeAudioContext();
+    }
 
     if (isPausedRef.current) {
       const pauseDuration = performance.now() - lastPauseTimeRef.current;
@@ -235,7 +261,7 @@ export const useAnimation = ({
       isTransitioningRef.current = false;
       animationFrameRef.current = requestAnimationFrame(animateFrame);
     });
-  }, [animateFrame]);
+  }, [animateFrame, audioContext, initializeAudioContext]);
 
   const stopAnimation = useCallback(() => {
     isTransitioningRef.current = true;
@@ -278,7 +304,7 @@ export const useAnimation = ({
       score: prev.score,
     }));
 
-    setTimeout(() => {
+    restartTimeoutRef.current = setTimeout(() => {
       startAnimation();
     }, 100);
   }, [startAnimation, stopAnimation]);
