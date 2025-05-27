@@ -64,18 +64,17 @@ export const SOLFEGE_TO_NOTE: { [key: string]: SolfegeToNote } = {
   },
 };
 
-// 오디오 컨텍스트를 저장할 변수
-let audioContext: AudioContext | null = null;
+// 전역 오디오 컨텍스트 (useAudioContext 훅에서 관리)
+let globalAudioContext: AudioContext | null = null;
 
-// 오디오 컨텍스트 초기화 함수
-export const initAudioContext = (): AudioContext => {
-  if (!audioContext) {
-    // Safari 브라우저 호환성을 위한 처리
-    const AudioContextClass =
-      window.AudioContext || (window as any).webkitAudioContext;
-    audioContext = new AudioContextClass();
-  }
-  return audioContext;
+// 오디오 컨텍스트 설정 함수 (useAudioContext 훅에서 호출)
+export const setGlobalAudioContext = (context: AudioContext | null): void => {
+  globalAudioContext = context;
+};
+
+// 오디오 컨텍스트 가져오기 함수
+export const getGlobalAudioContext = (): AudioContext | null => {
+  return globalAudioContext;
 };
 
 // 사운드 합성을 이용한 음 재생 함수
@@ -85,7 +84,14 @@ export const playTone = (
   duration: number = 1,
   volume: number = 0.5
 ): void => {
-  const context = initAudioContext();
+  const context = getGlobalAudioContext();
+
+  if (!context) {
+    console.error(
+      "AudioContext not initialized. Please use useAudioContext hook."
+    );
+    return;
+  }
 
   // 음 높이를 성별에 따라 매핑
   const noteToPlay = SOLFEGE_TO_NOTE[gender][note];
@@ -129,7 +135,14 @@ export const playNoteFromFile = async (
   gender: "male" | "female",
   duration: number = 1
 ): Promise<void> => {
-  const context = initAudioContext();
+  const context = getGlobalAudioContext();
+
+  if (!context) {
+    console.error(
+      "AudioContext not initialized. Please use useAudioContext hook."
+    );
+    return;
+  }
 
   // 파일 경로 생성 (예: audio/female/C4.mp3)
   const filePath = `/audio/${gender}/${SOLFEGE_TO_NOTE[gender][note]}.mp3`;
@@ -226,9 +239,9 @@ export const cleanupAudio = (): void => {
   // 진행 중인 시퀀스 정리
   clearSequence();
 
-  if (audioContext) {
-    audioContext.close().then(() => {
-      audioContext = null;
+  if (globalAudioContext) {
+    globalAudioContext.close().then(() => {
+      globalAudioContext = null;
     });
   }
 };

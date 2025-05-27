@@ -181,6 +181,12 @@ export default function PracticePage({ params }: PracticePageProps) {
   // 뒤로 가기 핸들러
   const handleBackClick = () => {
     stopAnimation();
+
+    // 마이크가 활성화되어 있다면 해제
+    if (isMicActive) {
+      toggleMicrophone();
+    }
+
     router.push("/levels");
   };
 
