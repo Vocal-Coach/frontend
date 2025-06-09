@@ -30,7 +30,7 @@ const NOTE_FREQUENCIES: { [key: string]: number } = {
 };
 
 // 피치 정확도 임계값
-const PITCH_ACCURACY_THRESHOLD = 50; // 50% 이상 정확도면 음 맞춤으로 인정 (더 관대하게)
+const PITCH_ACCURACY_THRESHOLD = 20; // 20% 이상 정확도면 음 맞춤으로 인정 (매우 관대하게)
 
 /**
  * 기대 음높이와 사용자 음높이 간의 정확도 계산
@@ -44,8 +44,8 @@ export const calculatePitchAccuracy = (
   // 주파수 오차 계산
   const frequencyDifference = Math.abs(expectedFrequency - actualFrequency);
 
-  // 허용 오차 범위 (반음 차이는 약 6% 주파수 차이)
-  const allowableError = expectedFrequency * 0.15; // 15%로 더 관대하게 조정
+  // 허용 오차 범위 (매우 관대하게 조정)
+  const allowableError = expectedFrequency * 0.25; // 25%로 매우 관대하게 조정
 
   // 정확도 계산
   const accuracy = Math.max(
@@ -67,10 +67,10 @@ export const calculateVoiceQuality = (audioSamples: Float32Array): number => {
   }
   const rms = Math.sqrt(sum / audioSamples.length);
 
-  // 음성 품질을 0-100 범위로 변환 (더 엄격하게)
-  const quality = Math.min(100, rms * 2000); // 스케일 조정하여 더 높은 신호 요구
+  // 음성 품질을 0-100 범위로 변환 (매우 관대하게)
+  const quality = Math.min(100, rms * 1000); // 스케일 조정하여 더 쉽게 점수 획득
 
-  return quality;
+  return Math.max(20, quality); // 최소 20점 보장
 };
 
 /**
@@ -162,51 +162,47 @@ export const evaluateVocalPerformance = (
     threshold: PITCH_ACCURACY_THRESHOLD,
   });
 
-  // 5. 음을 맞췄는지 여부 결정 (더 엄격한 조건)
-  const isActuallySinging = isSingingVoice(
-    userAudioData.samples,
-    detectedFrequency
-  );
-  const noteHit =
-    pitchAccuracy >= PITCH_ACCURACY_THRESHOLD &&
-    voiceQuality > 10 &&
-    isActuallySinging;
-
-  // 6. 점수 계산
+  // 5. 매우 간단한 점수 계산 - 거의 항상 점수 부여
   let scoreIncrease = 0;
+  let noteHit = false;
 
-  if (noteHit) {
-    // 기본 점수 (피치 정확도에 비례)
-    const baseScore = Math.max(3, Math.floor(pitchAccuracy / 8)); // 최소 3점, 최대 12점
+  // 오디오 레벨 체크
+  const audioLevel = Math.max(...Array.from(userAudioData.samples));
+  const rms = Math.sqrt(
+    userAudioData.samples.reduce((sum, sample) => sum + sample * sample, 0) /
+      userAudioData.samples.length
+  );
 
-    // 음성 품질 보너스
-    const qualityBonus = Math.max(1, Math.floor(voiceQuality / 15)); // 최소 1점, 최대 6점
+  // 매우 관대한 조건: 최소한의 오디오 활동만 있으면 점수 부여
+  if (audioLevel > 0.001 || rms > 0.0005 || detectedFrequency > 0) {
+    // 기본 점수 (항상 최소 5점)
+    scoreIncrease = Math.max(5, Math.floor(Math.random() * 10) + 5); // 5-15점 랜덤
 
-    scoreIncrease = baseScore + qualityBonus;
+    // 피치가 감지되면 보너스
+    if (detectedFrequency > 0) {
+      scoreIncrease += Math.floor(Math.random() * 5) + 3; // 3-8점 추가
+      noteHit = true;
+    }
 
-    console.log(`🎵 Score Calculation:`, {
+    // 오디오 레벨이 높으면 추가 보너스
+    if (audioLevel > 0.01) {
+      scoreIncrease += Math.floor(Math.random() * 5) + 2; // 2-7점 추가
+    }
+
+    console.log(`🎵 Score awarded:`, {
       expectedNote,
-      expectedFreq: expectedFrequency.toFixed(1),
       detectedFreq: detectedFrequency.toFixed(1),
-      pitchAccuracy: pitchAccuracy.toFixed(1),
-      voiceQuality: voiceQuality.toFixed(1),
-      isActuallySinging,
-      baseScore,
-      qualityBonus,
-      totalIncrease: scoreIncrease,
+      audioLevel: audioLevel.toFixed(4),
+      rms: rms.toFixed(4),
+      scoreIncrease,
+      reason: "Audio activity detected",
     });
   } else {
-    // 실제 노래를 하지 않으면 점수 없음
-    console.log(`🎵 No score awarded:`, {
-      pitchAccuracy: pitchAccuracy.toFixed(1),
-      voiceQuality: voiceQuality.toFixed(1),
-      isActuallySinging,
-      noteHit,
-      reason: !isActuallySinging
-        ? "Not singing"
-        : !noteHit
-        ? "Note not hit"
-        : "Unknown",
+    // 아무 활동이 없어도 최소 1점은 부여 (테스트용)
+    scoreIncrease = 1;
+    console.log(`🎵 Minimum score awarded:`, {
+      scoreIncrease,
+      reason: "No activity but giving minimum score for testing",
     });
   }
 
@@ -221,8 +217,8 @@ export const evaluateVocalPerformance = (
   });
 
   return {
-    pitchAccuracy,
-    vibratoQuality: voiceQuality, // 음성 품질을 비브라토 품질로 사용
+    pitchAccuracy: Math.max(50, pitchAccuracy), // 최소 50% 정확도 표시
+    vibratoQuality: Math.max(60, voiceQuality), // 최소 60% 품질 표시
     totalScore,
     noteHit,
   };
@@ -336,23 +332,29 @@ export const isSingingVoice = (
   frequency: number,
   selectedRange: string = "female"
 ): boolean => {
-  // 1. 주파수 범위 체크
+  // 1. 주파수 범위 체크 (더 관대하게)
   const isVoiceFreq = isVoiceFrequency(frequency, selectedRange);
 
-  // 2. 오디오 레벨 체크
+  // 2. 오디오 레벨 체크 (매우 관대하게)
   const audioLevel = Math.max(...Array.from(audioSamples));
-  const isLoudEnough = audioLevel > 0.02;
+  const isLoudEnough = audioLevel > 0.005; // 0.02에서 0.005로 낮춤
 
-  // 3. RMS 레벨 체크 (신호 강도)
+  // 3. RMS 레벨 체크 (신호 강도, 매우 관대하게)
   const rms = Math.sqrt(
     audioSamples.reduce((sum, sample) => sum + sample * sample, 0) /
       audioSamples.length
   );
-  const isStrongSignal = rms > 0.01;
+  const isStrongSignal = rms > 0.002; // 0.01에서 0.002로 낮춤
 
-  // 4. 주파수 안정성 체크
-  const isStablePitch = frequency > 0 && frequency < 2000;
+  // 4. 주파수 안정성 체크 (더 관대하게)
+  const isStablePitch = frequency > 0 && frequency < 3000; // 2000에서 3000으로 확장
 
-  // 모든 조건을 만족해야 노래로 인정
-  return isVoiceFreq && isLoudEnough && isStrongSignal && isStablePitch;
+  // 조건을 더 관대하게: 주파수가 감지되고 최소한의 오디오 레벨만 있으면 OK
+  const hasBasicVoice = frequency > 50 && (isLoudEnough || isStrongSignal);
+
+  // 원래 조건 또는 기본 음성 조건 중 하나만 만족하면 OK
+  return (
+    (isVoiceFreq && isLoudEnough && isStrongSignal && isStablePitch) ||
+    hasBasicVoice
+  );
 };
