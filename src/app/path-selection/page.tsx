@@ -22,15 +22,14 @@ export default function PathSelection() {
             />
           </Link>
 
-          <Card
-            title="Practice Exercises"
-            description="Access targeted exercises to improve your vocal skills."
-            icon={<BarChartBig className="text-purple-600" />}
-            accentColorClass="text-purple-600"
-            onClick={() =>
-              alert("This feature will be available in a future update.")
-            }
-          />
+          <Link href="/practice" className="block">
+            <Card
+              title="Practice Exercises"
+              description="Access targeted exercises to improve your vocal skills."
+              icon={<BarChartBig className="text-purple-600" />}
+              accentColorClass="text-purple-600"
+            />
+          </Link>
 
           <Link href="/learn" className="block">
             <Card
