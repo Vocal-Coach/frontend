@@ -10,7 +10,7 @@ const MobileFrame: React.FC<MobileFrameProps> = ({
   className = "",
 }) => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 p-4">
+    <div className="flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 p-4">
       <div
         className={`w-full max-w-[375px] h-[95vh] max-h-[800px] bg-background text-text-primary rounded-3xl shadow-xl overflow-hidden flex flex-col ${className}`}
         style={{ display: "flex", flexDirection: "column" }}

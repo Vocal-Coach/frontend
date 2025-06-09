@@ -45,7 +45,7 @@ export default function Home() {
             </Button>
           </Link>
         ) : (
-          <Link href="/auth">
+          <Link href="/onboarding">
             <Button
               variant="primary"
               size="large"

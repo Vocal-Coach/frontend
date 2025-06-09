@@ -15,7 +15,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push('/auth');
+      router.push('/onboarding');
     }
   }, [isAuthenticated, loading, router]);
 

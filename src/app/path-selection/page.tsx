@@ -6,7 +6,7 @@ import { Mic, BarChartBig, BookOpen } from "lucide-react";
 
 export default function PathSelection() {
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-12">
+    <div className="flex flex-col justify-center px-6 py-12">
       <div className="max-w-sm mx-auto w-full">
         <h2 className="text-3xl font-semibold text-gray-800 mb-10 text-center">
           How would you like to begin?

@@ -573,7 +573,7 @@ export default function TonePracticePage() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-gray-50">
+    <div className="min-h-[100dvh] flex flex-col bg-gray-50">
       {/* Header */}
       <div className="flex items-center justify-between p-5 bg-white border-b border-gray-200">
         <Link href="/practice">
