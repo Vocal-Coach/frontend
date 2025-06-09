@@ -4,21 +4,19 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, Play, Pause, RotateCcw, Check } from "lucide-react";
 
-export default function BreathingPracticePage() {
+export default function TonePracticePage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [breathAccuracy, setBreathAccuracy] = useState(0);
+  const [toneAccuracy, setToneAccuracy] = useState(0);
   const [score, setScore] = useState(0);
   const [finalScore, setFinalScore] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<
-    "inhale" | "exhale" | "hold"
-  >("inhale");
-  const [phaseTimer, setPhaseTimer] = useState(0);
+  const [currentSyllable, setCurrentSyllable] = useState<"mom" | "moh">("mom");
+  const [syllableTimer, setSyllableTimer] = useState(0);
   const [cycleCount, setCycleCount] = useState(0);
-  const [isBreathing, setIsBreathing] = useState(false);
+  const [isSinging, setIsSinging] = useState(false);
   const [pausedAt, setPausedAt] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
 
@@ -27,42 +25,41 @@ export default function BreathingPracticePage() {
   const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number>();
-  const phaseIntervalRef = useRef<NodeJS.Timeout>();
+  const syllableIntervalRef = useRef<NodeJS.Timeout>();
   const currentScoreRef = useRef<number>(0);
   const allIntervalsRef = useRef<NodeJS.Timeout[]>([]);
   const isRunningRef = useRef<boolean>(false);
-  const breathAccuracyHistoryRef = useRef<number[]>([]);
+  const toneAccuracyHistoryRef = useRef<number[]>([]);
   const lastScoreTimeRef = useRef<number>(0);
 
-  // Breathing pattern: 4 seconds inhale, 2 seconds hold, 6 seconds exhale
-  const breathingPattern = {
-    inhale: 4000, // 4 seconds
-    hold: 2000, // 2 seconds
-    exhale: 6000, // 6 seconds
+  // Tone pattern: 3 seconds Mom, 3 seconds Moh
+  const tonePattern = {
+    mom: 3000, // 3 seconds
+    moh: 3000, // 3 seconds
   };
 
-  // Smooth breath accuracy to reduce rapid changes
-  const setSmoothedBreathAccuracy = (newAccuracy: number) => {
-    breathAccuracyHistoryRef.current.push(newAccuracy);
+  // Smooth tone accuracy to reduce rapid changes
+  const setSmoothedToneAccuracy = (newAccuracy: number) => {
+    toneAccuracyHistoryRef.current.push(newAccuracy);
 
-    // Keep only last 3 values for smoothing (reduced from 5)
-    if (breathAccuracyHistoryRef.current.length > 3) {
-      breathAccuracyHistoryRef.current.shift();
+    // Keep only last 3 values for smoothing
+    if (toneAccuracyHistoryRef.current.length > 3) {
+      toneAccuracyHistoryRef.current.shift();
     }
 
-    // Simple average instead of weighted average
-    const sum = breathAccuracyHistoryRef.current.reduce((a, b) => a + b, 0);
+    // Simple average
+    const sum = toneAccuracyHistoryRef.current.reduce((a, b) => a + b, 0);
     const smoothedAccuracy = Math.round(
-      sum / breathAccuracyHistoryRef.current.length
+      sum / toneAccuracyHistoryRef.current.length
     );
 
     console.log(
-      `Breath Accuracy: raw=${newAccuracy}, history=[${breathAccuracyHistoryRef.current.join(
+      `Tone Accuracy: raw=${newAccuracy}, history=[${toneAccuracyHistoryRef.current.join(
         ", "
       )}], smoothed=${smoothedAccuracy}`
     );
 
-    setBreathAccuracy(smoothedAccuracy);
+    setToneAccuracy(smoothedAccuracy);
     return smoothedAccuracy;
   };
 
@@ -71,8 +68,8 @@ export default function BreathingPracticePage() {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      if (phaseIntervalRef.current) {
-        clearInterval(phaseIntervalRef.current);
+      if (syllableIntervalRef.current) {
+        clearInterval(syllableIntervalRef.current);
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -109,8 +106,8 @@ export default function BreathingPracticePage() {
       microphoneRef.current =
         audioContextRef.current.createMediaStreamSource(stream);
 
-      analyserRef.current.fftSize = 512; // Increased for better resolution
-      analyserRef.current.smoothingTimeConstant = 0.3; // Less smoothing for more responsive detection
+      analyserRef.current.fftSize = 512;
+      analyserRef.current.smoothingTimeConstant = 0.3;
       analyserRef.current.minDecibels = -90;
       analyserRef.current.maxDecibels = -10;
 
@@ -137,29 +134,29 @@ export default function BreathingPracticePage() {
     // Calculate audio level with better sensitivity
     const sum = dataArray.reduce((a, b) => a + b, 0);
     const average = sum / bufferLength;
-    const level = Math.min(100, (average / 30) * 100); // More sensitive (changed from 50 to 30)
+    const level = Math.min(100, (average / 30) * 100);
 
     setAudioLevel(level);
 
-    // Detect if user is breathing/making sound (lowered threshold)
-    const isCurrentlyBreathing = level > 8; // Lowered from 15 to 8
-    setIsBreathing(isCurrentlyBreathing);
+    // Detect if user is singing/making sound
+    const isCurrentlySinging = level > 8;
+    setIsSinging(isCurrentlySinging);
 
-    // Debug logging to see if audio is being detected
+    // Debug logging
     console.log(
       `Audio Analysis: level=${level.toFixed(
         1
-      )}%, phase=${currentPhase}, timer=${phaseTimer.toFixed(
+      )}%, syllable=${currentSyllable}, timer=${syllableTimer.toFixed(
         1
       )}s, isPlaying=${isPlaying}, isPaused=${isPaused}`
     );
 
-    // Score based on breathing pattern matching - only when exercise is running
+    // Score based on tone pattern matching - only when exercise is running
     if (isRunningRef.current) {
       const currentTime = Date.now();
       const shouldScore =
         lastScoreTimeRef.current === 0 ||
-        currentTime - lastScoreTimeRef.current > 500; // Score every 500ms (reduced frequency)
+        currentTime - lastScoreTimeRef.current > 500;
 
       console.log(`🔍 DETAILED SCORING CHECK:`);
       console.log(`  - isRunningRef.current: ${isRunningRef.current}`);
@@ -170,116 +167,86 @@ export default function BreathingPracticePage() {
       console.log(`  - lastScoreTimeRef.current: ${lastScoreTimeRef.current}`);
       console.log(`  - timeDiff: ${currentTime - lastScoreTimeRef.current}ms`);
       console.log(`  - shouldScore: ${shouldScore}`);
-      console.log(`  - currentPhase: ${currentPhase}`);
+      console.log(`  - currentSyllable: ${currentSyllable}`);
       console.log(`  - audioLevel: ${level.toFixed(1)}%`);
 
       // PROPER SCORING - Only score every 500ms
       if (shouldScore) {
-        // Use the proper timing condition
-        let points = 0; // Start with 0 points
-        let accuracy = 0; // Start with 0 accuracy
+        let points = 0;
+        let accuracy = 0;
         let reason = "No activity detected";
-        let shouldAwardPoints = false; // Only award points for correct behavior
+        let shouldAwardPoints = false;
 
         console.log(
-          `🎤 Audio Level: ${level.toFixed(1)}%, Phase: ${currentPhase}`
+          `🎤 Audio Level: ${level.toFixed(1)}%, Syllable: ${currentSyllable}`
         );
 
-        // Detailed scoring based on phase and actual audio detection
-        if (currentPhase === "exhale") {
-          // During exhale phase - user should make "Hoo" sound
-          if (level > 20) {
-            // Strong sound during exhale - EXCELLENT
-            points = 25;
-            accuracy = Math.min(100, 60 + level);
-            reason = `Excellent "Hoo" sound (${level.toFixed(1)}%)`;
-            shouldAwardPoints = true;
-          } else if (level > 10) {
-            // Moderate sound during exhale - GOOD
-            points = 15;
-            accuracy = Math.min(100, 40 + level * 2);
-            reason = `Good exhale sound (${level.toFixed(1)}%)`;
-            shouldAwardPoints = true;
-          } else if (level > 5) {
-            // Weak sound during exhale - OKAY
-            points = 8;
-            accuracy = Math.max(20, level * 4);
-            reason = `Weak exhale sound (${level.toFixed(1)}%)`;
-            shouldAwardPoints = true;
-          } else {
-            // No sound during exhale - BAD (NO POINTS)
-            points = 0;
-            accuracy = 10;
-            reason = `Silent during exhale - no points (${level.toFixed(1)}%)`;
-            shouldAwardPoints = false;
-          }
-        } else if (currentPhase === "inhale") {
-          // During inhale phase - user should be quiet
-          if (level < 5) {
-            // Very quiet during inhale - EXCELLENT
-            points = 20;
-            accuracy = Math.min(100, 90 - level * 2);
-            reason = `Excellent quiet inhale (${level.toFixed(1)}%)`;
-            shouldAwardPoints = true;
-          } else if (level < 10) {
-            // Quiet during inhale - GOOD
-            points = 12;
-            accuracy = Math.max(60, 80 - level * 3);
-            reason = `Good quiet inhale (${level.toFixed(1)}%)`;
-            shouldAwardPoints = true;
-          } else if (level < 15) {
-            // Slightly noisy during inhale - OKAY
-            points = 6;
-            accuracy = Math.max(30, 60 - level * 2);
-            reason = `Slightly noisy inhale (${level.toFixed(1)}%)`;
-            shouldAwardPoints = true;
-          } else {
-            // Too noisy during inhale - BAD (NO POINTS)
-            points = 0;
-            accuracy = Math.max(10, 40 - level);
-            reason = `Too noisy during inhale - no points (${level.toFixed(
-              1
-            )}%)`;
-            shouldAwardPoints = false;
-          }
-        } else if (currentPhase === "hold") {
-          // During hold phase - user should be completely silent
-          if (level < 3) {
-            // Perfect silence during hold - EXCELLENT
+        // Detailed scoring based on syllable and actual audio detection
+        if (currentSyllable === "mom") {
+          // During "Mom" syllable - user should make clear "Mom" sound
+          if (level > 25) {
+            // Strong sound during Mom - EXCELLENT
             points = 30;
-            accuracy = Math.min(100, 95 - level);
-            reason = `Perfect breath hold (${level.toFixed(1)}%)`;
+            accuracy = Math.min(100, 70 + level);
+            reason = `Excellent "Mom" sound (${level.toFixed(1)}%)`;
             shouldAwardPoints = true;
-          } else if (level < 8) {
-            // Mostly quiet during hold - GOOD
-            points = 18;
-            accuracy = Math.max(70, 85 - level * 2);
-            reason = `Good breath hold (${level.toFixed(1)}%)`;
+          } else if (level > 15) {
+            // Moderate sound during Mom - GOOD
+            points = 20;
+            accuracy = Math.min(100, 50 + level * 2);
+            reason = `Good "Mom" sound (${level.toFixed(1)}%)`;
             shouldAwardPoints = true;
-          } else if (level < 12) {
-            // Some noise during hold - OKAY
-            points = 8;
-            accuracy = Math.max(40, 70 - level * 3);
-            reason = `Okay breath hold (${level.toFixed(1)}%)`;
+          } else if (level > 8) {
+            // Weak sound during Mom - OKAY
+            points = 10;
+            accuracy = Math.max(30, level * 3);
+            reason = `Weak "Mom" sound (${level.toFixed(1)}%)`;
             shouldAwardPoints = true;
           } else {
-            // Too much noise during hold - BAD (NO POINTS)
+            // No sound during Mom - BAD
             points = 0;
-            accuracy = Math.max(15, 50 - level * 2);
-            reason = `Poor breath hold - no points (${level.toFixed(1)}%)`;
+            accuracy = 15;
+            reason = `Silent during "Mom" - no points (${level.toFixed(1)}%)`;
+            shouldAwardPoints = false;
+          }
+        } else if (currentSyllable === "moh") {
+          // During "Moh" syllable - user should make clear "Moh" sound
+          if (level > 25) {
+            // Strong sound during Moh - EXCELLENT
+            points = 30;
+            accuracy = Math.min(100, 70 + level);
+            reason = `Excellent "Moh" sound (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level > 15) {
+            // Moderate sound during Moh - GOOD
+            points = 20;
+            accuracy = Math.min(100, 50 + level * 2);
+            reason = `Good "Moh" sound (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level > 8) {
+            // Weak sound during Moh - OKAY
+            points = 10;
+            accuracy = Math.max(30, level * 3);
+            reason = `Weak "Moh" sound (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else {
+            // No sound during Moh - BAD
+            points = 0;
+            accuracy = 15;
+            reason = `Silent during "Moh" - no points (${level.toFixed(1)}%)`;
             shouldAwardPoints = false;
           }
         }
 
         console.log(
-          `🎯 DETAILED SCORING - Phase: ${currentPhase}, Audio: ${level.toFixed(
+          `🎯 DETAILED SCORING - Syllable: ${currentSyllable}, Audio: ${level.toFixed(
             1
           )}%, Points: ${points}, Accuracy: ${accuracy}%, Award: ${shouldAwardPoints}, Reason: ${reason}`
         );
 
-        // Update breath accuracy immediately (always update for feedback)
-        setBreathAccuracy(accuracy);
-        console.log(`🎯 Set breath accuracy to: ${accuracy}%`);
+        // Update tone accuracy immediately
+        setToneAccuracy(accuracy);
+        console.log(`🎯 Set tone accuracy to: ${accuracy}%`);
 
         // Only update score if behavior was correct
         if (shouldAwardPoints && points > 0) {
@@ -291,7 +258,7 @@ export default function BreathingPracticePage() {
             `💰 SCORE AWARDED: ${oldScore} + ${points} = ${newScore}`
           );
         } else {
-          console.log(`❌ NO POINTS AWARDED - Incorrect breathing pattern`);
+          console.log(`❌ NO POINTS AWARDED - Incorrect tone pattern`);
         }
 
         lastScoreTimeRef.current = currentTime;
@@ -319,42 +286,40 @@ export default function BreathingPracticePage() {
     }
   };
 
-  const startBreathingCycle = () => {
-    console.log("startBreathingCycle called");
-    // Don't reset phase and timer here - they're already set in handleStart
+  const startToneCycle = () => {
+    console.log("startToneCycle called");
     console.log(
-      `Starting with: phase=${currentPhase}, timer=${phaseTimer}, cycle=${cycleCount}`
+      `Starting with: syllable=${currentSyllable}, timer=${syllableTimer}, cycle=${cycleCount}`
     );
 
     let currentCycle = 0;
-    let currentPhaseIndex = 0; // 0: inhale, 1: hold, 2: exhale
-    const phases = [
-      { name: "inhale", duration: 4 },
-      { name: "hold", duration: 2 },
-      { name: "exhale", duration: 6 },
+    let currentSyllableIndex = 0; // 0: mom, 1: moh
+    const syllables = [
+      { name: "mom", duration: 3 },
+      { name: "moh", duration: 3 },
     ];
-    let timeRemaining = 4; // Start with inhale duration
+    let timeRemaining = 3; // Start with mom duration
 
     const timerInterval = setInterval(() => {
       // Check if paused
       if (!isRunningRef.current) {
-        return; // Don't update timer when paused
+        return;
       }
 
       timeRemaining -= 0.1;
-      setPhaseTimer(timeRemaining);
+      setSyllableTimer(timeRemaining);
 
       console.log(
-        `Timer: ${timeRemaining.toFixed(1)}s, Phase: ${
-          phases[currentPhaseIndex].name
+        `Timer: ${timeRemaining.toFixed(1)}s, Syllable: ${
+          syllables[currentSyllableIndex].name
         }, Cycle: ${currentCycle + 1}`
       );
 
       if (timeRemaining <= 0) {
-        // Move to next phase
-        currentPhaseIndex++;
+        // Move to next syllable
+        currentSyllableIndex++;
 
-        if (currentPhaseIndex >= phases.length) {
+        if (currentSyllableIndex >= syllables.length) {
           // Completed one full cycle
           currentCycle++;
           setCycleCount(currentCycle);
@@ -392,66 +357,67 @@ export default function BreathingPracticePage() {
           }
 
           // Start next cycle
-          currentPhaseIndex = 0;
+          currentSyllableIndex = 0;
         }
 
-        // Set up next phase
-        const nextPhase = phases[currentPhaseIndex];
-        setCurrentPhase(nextPhase.name as "inhale" | "hold" | "exhale");
-        timeRemaining = nextPhase.duration;
-        setPhaseTimer(timeRemaining);
+        // Set up next syllable
+        const nextSyllable = syllables[currentSyllableIndex];
+        setCurrentSyllable(nextSyllable.name as "mom" | "moh");
+        timeRemaining = nextSyllable.duration;
+        setSyllableTimer(timeRemaining);
 
         console.log(
-          `Starting ${nextPhase.name} phase, duration: ${nextPhase.duration}s`
+          `Starting ${nextSyllable.name} syllable, duration: ${nextSyllable.duration}s`
         );
       }
-    }, 100); // Update every 100ms
+    }, 100);
 
     // Store interval for cleanup
     allIntervalsRef.current.push(timerInterval);
   };
 
-  const startBreathingCycleFromPause = () => {
-    console.log("startBreathingCycleFromPause called");
+  const startToneCycleFromPause = () => {
+    console.log("startToneCycleFromPause called");
     console.log(
-      `Resuming from: phase=${currentPhase}, timer=${phaseTimer}, cycle=${cycleCount}`
+      `Resuming from: syllable=${currentSyllable}, timer=${syllableTimer}, cycle=${cycleCount}`
     );
 
     // Get current state
     let currentCycle = cycleCount;
-    const phases = [
-      { name: "inhale", duration: 4 },
-      { name: "hold", duration: 2 },
-      { name: "exhale", duration: 6 },
+    const syllables = [
+      { name: "mom", duration: 3 },
+      { name: "moh", duration: 3 },
     ];
 
-    // Find current phase index
-    let currentPhaseIndex = phases.findIndex((p) => p.name === currentPhase);
-    if (currentPhaseIndex === -1) currentPhaseIndex = 0;
+    // Find current syllable index
+    let currentSyllableIndex = syllables.findIndex(
+      (s) => s.name === currentSyllable
+    );
+    if (currentSyllableIndex === -1) currentSyllableIndex = 0;
 
     // Use remaining time from pause
-    let timeRemaining = phaseTimer;
+    let timeRemaining = syllableTimer;
 
     const timerInterval = setInterval(() => {
       // Check if paused
       if (!isRunningRef.current) {
-        return; // Don't update timer when paused
+        return;
       }
 
       timeRemaining -= 0.1;
-      setPhaseTimer(timeRemaining);
+      setSyllableTimer(timeRemaining);
 
       console.log(
-        `Resume Timer: ${timeRemaining.toFixed(1)}s, Phase: ${
-          phases[currentPhaseIndex].name
+        `Resume Timer: ${timeRemaining.toFixed(1)}s, Syllable: ${
+          syllables[currentSyllableIndex].name
         }, Cycle: ${currentCycle + 1}`
       );
 
       if (timeRemaining <= 0) {
-        // Move to next phase
-        currentPhaseIndex++;
+        // Move to next syllable
+        currentSyllableIndex++;
 
-        if (currentPhaseIndex >= phases.length) {
+        if (currentSyllableIndex >= syllables.length) {
           // Completed one full cycle
           currentCycle++;
           setCycleCount(currentCycle);
@@ -489,20 +455,20 @@ export default function BreathingPracticePage() {
           }
 
           // Start next cycle
-          currentPhaseIndex = 0;
+          currentSyllableIndex = 0;
         }
 
-        // Set up next phase
-        const nextPhase = phases[currentPhaseIndex];
-        setCurrentPhase(nextPhase.name as "inhale" | "hold" | "exhale");
-        timeRemaining = nextPhase.duration;
-        setPhaseTimer(timeRemaining);
+        // Set up next syllable
+        const nextSyllable = syllables[currentSyllableIndex];
+        setCurrentSyllable(nextSyllable.name as "mom" | "moh");
+        timeRemaining = nextSyllable.duration;
+        setSyllableTimer(timeRemaining);
 
         console.log(
-          `Starting ${nextPhase.name} phase, duration: ${nextPhase.duration}s`
+          `Starting ${nextSyllable.name} syllable, duration: ${nextSyllable.duration}s`
         );
       }
-    }, 100); // Update every 100ms
+    }, 100);
 
     // Store interval for cleanup
     allIntervalsRef.current.push(timerInterval);
@@ -522,26 +488,24 @@ export default function BreathingPracticePage() {
         setIsPaused(false);
         setIsCompleted(false);
         setScore(0);
-        currentScoreRef.current = 0; // Reset score ref
+        currentScoreRef.current = 0;
         setFinalScore(0);
-        setBreathAccuracy(0);
-        setCurrentPhase("inhale");
+        setToneAccuracy(0);
+        setCurrentSyllable("mom");
         setCycleCount(0);
-        setPhaseTimer(4); // Start with 4 seconds for inhale phase
+        setSyllableTimer(3); // Start with 3 seconds for mom syllable
         lastScoreTimeRef.current = 0;
         setPausedAt(0);
         setRemainingTime(0);
         isRunningRef.current = true;
-        breathAccuracyHistoryRef.current = []; // Reset breath accuracy history
+        toneAccuracyHistoryRef.current = [];
 
-        console.log(
-          "States set, starting audio analysis and breathing cycle..."
-        );
+        console.log("States set, starting audio analysis and tone cycle...");
 
         // Start audio analysis immediately without delay
         console.log("🚀 Starting audio analysis immediately...");
         analyzeAudio();
-        startBreathingCycle();
+        startToneCycle();
       }
     } else if (isPaused) {
       // Resume exercise
@@ -553,7 +517,7 @@ export default function BreathingPracticePage() {
 
       // Restart the timer interval from where it was paused
       console.log("Restarting timer interval from pause...");
-      startBreathingCycleFromPause();
+      startToneCycleFromPause();
     } else {
       // Pause exercise
       console.log("Pausing exercise...");
@@ -561,7 +525,7 @@ export default function BreathingPracticePage() {
       setIsRecording(false);
       isRunningRef.current = false;
       setPausedAt(Date.now());
-      setRemainingTime(phaseTimer);
+      setRemainingTime(syllableTimer);
 
       // Pause audio analysis but keep audio context alive
       if (animationRef.current) {
@@ -581,31 +545,27 @@ export default function BreathingPracticePage() {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
-    if (phaseIntervalRef.current) {
-      clearInterval(phaseIntervalRef.current);
+    if (syllableIntervalRef.current) {
+      clearInterval(syllableIntervalRef.current);
     }
   };
 
-  const getPhaseInstruction = () => {
-    switch (currentPhase) {
-      case "inhale":
-        return "Breathe in slowly...";
-      case "hold":
-        return "Hold your breath...";
-      case "exhale":
-        return 'Breathe out with "Hoo" sound...';
+  const getSyllableInstruction = () => {
+    switch (currentSyllable) {
+      case "mom":
+        return 'Sing "Mom" with resonant tone...';
+      case "moh":
+        return 'Sing "Moh" with forward placement...';
       default:
         return "Get ready...";
     }
   };
 
-  const getPhaseColor = () => {
-    switch (currentPhase) {
-      case "inhale":
+  const getSyllableColor = () => {
+    switch (currentSyllable) {
+      case "mom":
         return "from-blue-400 to-cyan-400";
-      case "hold":
-        return "from-yellow-400 to-orange-400";
-      case "exhale":
+      case "moh":
         return "from-purple-400 to-pink-400";
       default:
         return "from-gray-400 to-gray-500";
@@ -623,10 +583,8 @@ export default function BreathingPracticePage() {
         </Link>
 
         <div className="text-center">
-          <p className="text-sm text-gray-500 uppercase tracking-wide">
-            BREATHING
-          </p>
-          <h1 className="text-xl font-bold text-gray-800">Deep Hoo</h1>
+          <p className="text-sm text-gray-500 uppercase tracking-wide">TONE</p>
+          <h1 className="text-xl font-bold text-gray-800">Mom Moh</h1>
         </div>
 
         <div className="w-10"></div>
@@ -641,20 +599,19 @@ export default function BreathingPracticePage() {
               GOAL
             </h3>
             <p className="text-gray-700 text-sm leading-relaxed mb-4">
-              Practice deep breathing with "Hoo" sound to develop breath control
-              and support.
+              Achieve a resonant, forward-placed tone.
             </p>
 
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
               INSTRUCTIONS
             </h3>
             <p className="text-gray-700 text-sm leading-relaxed">
-              Follow the breathing pattern: Inhale (4s) → Hold (2s) → Exhale
-              with "Hoo" (6s)
+              Widen your nasal cavities and envision the sound projecting into
+              the nose and forehead.
             </p>
           </div>
 
-          {/* Breathing Visualization */}
+          {/* Tone Visualization */}
           <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200">
             <div className="text-center">
               {/* Exercise Status */}
@@ -690,7 +647,7 @@ export default function BreathingPracticePage() {
                     {isPaused
                       ? "Press Resume to continue"
                       : `Cycle ${cycleCount + 1} of 5 • ${Math.ceil(
-                          phaseTimer
+                          syllableTimer
                         )}s remaining`}
                   </p>
                 </div>
@@ -699,34 +656,32 @@ export default function BreathingPracticePage() {
               {/* Debug Info */}
               <div className="mb-4 p-2 bg-gray-100 rounded-lg text-xs">
                 <div className="grid grid-cols-2 gap-2 text-gray-600">
-                  <div>Phase: {currentPhase}</div>
-                  <div>Timer: {phaseTimer.toFixed(1)}s</div>
+                  <div>Syllable: {currentSyllable}</div>
+                  <div>Timer: {syllableTimer.toFixed(1)}s</div>
                 </div>
               </div>
 
-              {/* Current Phase */}
+              {/* Current Syllable */}
               <div className="mb-4">
                 <div
-                  className={`text-2xl font-bold mb-2 ${
-                    currentPhase === "inhale"
+                  className={`text-4xl font-bold mb-2 ${
+                    currentSyllable === "mom"
                       ? "text-blue-600"
-                      : currentPhase === "hold"
-                      ? "text-yellow-600"
-                      : currentPhase === "exhale"
+                      : currentSyllable === "moh"
                       ? "text-purple-600"
                       : "text-gray-600"
                   }`}
                 >
                   {isPlaying
-                    ? currentPhase === "exhale"
-                      ? "Hoo"
-                      : currentPhase.toUpperCase()
+                    ? currentSyllable === "mom"
+                      ? "Mom"
+                      : "Moh"
                     : "Ready to Start"}
                 </div>
                 <p className="text-sm text-gray-600">
                   {isPlaying
-                    ? getPhaseInstruction()
-                    : "Press Start to begin breathing exercise"}
+                    ? getSyllableInstruction()
+                    : "Press Start to begin tone exercise"}
                 </p>
               </div>
 
@@ -734,7 +689,7 @@ export default function BreathingPracticePage() {
               <div className="mb-4">
                 <div className="w-full bg-gray-200 rounded-full h-6 mb-2 relative">
                   <div
-                    className={`bg-gradient-to-r ${getPhaseColor()} h-6 rounded-full transition-all duration-200 flex items-center justify-center`}
+                    className={`bg-gradient-to-r ${getSyllableColor()} h-6 rounded-full transition-all duration-200 flex items-center justify-center`}
                     style={{ width: `${Math.max(5, audioLevel)}%` }}
                   >
                     {audioLevel > 20 && (
@@ -751,7 +706,7 @@ export default function BreathingPracticePage() {
                 <div className="flex justify-between items-center">
                   <p className="text-xs text-gray-500">
                     {isPlaying
-                      ? isBreathing
+                      ? isSinging
                         ? "🎤 Voice detected"
                         : "🔇 Silent"
                       : "🎤 Microphone ready"}
@@ -785,23 +740,21 @@ export default function BreathingPracticePage() {
                 </p>
               </div>
 
-              {/* Breath Accuracy */}
+              {/* Tone Accuracy */}
               <div className="text-center">
                 <span className="text-sm text-gray-500 uppercase tracking-wide">
-                  BREATH ACCURACY
+                  TONE ACCURACY
                 </span>
                 <div className="text-3xl font-bold text-gray-800">
-                  {Math.round(breathAccuracy)}%
+                  {Math.round(toneAccuracy)}%
                 </div>
-                {breathAccuracy > 80 && (
-                  <p className="text-sm text-green-600 mt-1">
-                    Excellent breathing!
-                  </p>
+                {toneAccuracy > 80 && (
+                  <p className="text-sm text-green-600 mt-1">Excellent tone!</p>
                 )}
-                {breathAccuracy > 60 && breathAccuracy <= 80 && (
-                  <p className="text-sm text-blue-600 mt-1">Good breathing!</p>
+                {toneAccuracy > 60 && toneAccuracy <= 80 && (
+                  <p className="text-sm text-blue-600 mt-1">Good tone!</p>
                 )}
-                {!isPlaying && breathAccuracy === 0 && (
+                {!isPlaying && toneAccuracy === 0 && (
                   <p className="text-sm text-gray-500 mt-1">
                     Start to see your accuracy
                   </p>
@@ -813,32 +766,32 @@ export default function BreathingPracticePage() {
       </div>
 
       {/* Bottom Controls */}
-      <div className="p-6 bg-white border-t border-gray-200">
+      <div className="p-5 bg-white border-t border-gray-200">
         <div className="flex items-center justify-between max-w-md mx-auto">
           {/* Start/Pause Button */}
           <button
             onClick={handleStart}
-            className={`flex-1 py-4 px-6 rounded-2xl font-semibold text-white transition-all duration-200 ${
+            className={`flex-1 py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200 ${
               !isPlaying
-                ? "bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 shadow-lg"
+                ? "bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600"
                 : isPaused
-                ? "bg-gradient-to-r from-blue-400 to-green-500 hover:from-blue-500 hover:to-green-600 shadow-lg"
-                : "bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 shadow-lg"
+                ? "bg-gradient-to-r from-blue-400 to-green-500 hover:from-blue-500 hover:to-green-600"
+                : "bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600"
             }`}
           >
             {!isPlaying ? (
               <div className="flex items-center justify-center gap-2">
-                <Play className="h-5 w-5" />
-                <span>Start Exercise</span>
+                <Play className="h-4 w-4" />
+                <span>Start</span>
               </div>
             ) : isPaused ? (
               <div className="flex items-center justify-center gap-2">
-                <Play className="h-5 w-5" />
+                <Play className="h-4 w-4" />
                 <span>Resume</span>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
-                <Pause className="h-5 w-5" />
+                <Pause className="h-4 w-4" />
                 <span>Pause</span>
               </div>
             )}
@@ -847,22 +800,10 @@ export default function BreathingPracticePage() {
           {/* Done Button */}
           <button
             onClick={handleDone}
-            className="py-4 px-8 ml-4 bg-black hover:bg-gray-800 text-white rounded-2xl font-semibold transition-colors"
+            className="py-3 px-6 ml-3 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-semibold transition-colors"
           >
             Done
           </button>
-        </div>
-
-        {/* Progress Dots */}
-        <div className="flex justify-center mt-4 gap-2">
-          {[1, 2, 3, 4, 5].map((dot) => (
-            <div
-              key={dot}
-              className={`w-2 h-2 rounded-full ${
-                dot === 1 ? "bg-gray-800" : "bg-gray-300"
-              }`}
-            />
-          ))}
         </div>
       </div>
 
@@ -877,7 +818,7 @@ export default function BreathingPracticePage() {
               Exercise Complete!
             </h2>
             <p className="text-gray-600 mb-4">
-              You completed all 5 breathing cycles.
+              You completed all 5 tone cycles.
             </p>
 
             {/* Score Display */}
@@ -891,12 +832,12 @@ export default function BreathingPracticePage() {
             {/* Performance Message */}
             <p className="text-sm text-gray-600">
               {finalScore >= 9000
-                ? "Excellent breathing control!"
+                ? "Excellent tone control!"
                 : finalScore >= 6000
-                ? "Good breathing technique!"
+                ? "Good tone technique!"
                 : finalScore >= 3000
                 ? "Keep practicing!"
-                : "Try to follow the breathing pattern more closely"}
+                : "Try to maintain consistent tone throughout"}
             </p>
 
             <div className="space-y-3">
@@ -904,17 +845,17 @@ export default function BreathingPracticePage() {
                 onClick={() => {
                   setIsCompleted(false);
                   setScore(0);
-                  currentScoreRef.current = 0; // Reset score ref
+                  currentScoreRef.current = 0;
                   setFinalScore(0);
-                  setBreathAccuracy(0);
+                  setToneAccuracy(0);
                   setCycleCount(0);
-                  setCurrentPhase("inhale");
-                  setPhaseTimer(0);
+                  setCurrentSyllable("mom");
+                  setSyllableTimer(0);
                   lastScoreTimeRef.current = 0;
                   setPausedAt(0);
                   setRemainingTime(0);
                   setIsPaused(false);
-                  breathAccuracyHistoryRef.current = []; // Reset breath accuracy history
+                  toneAccuracyHistoryRef.current = [];
                 }}
                 className="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold transition-colors"
               >
