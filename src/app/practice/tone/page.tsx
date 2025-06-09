@@ -573,9 +573,9 @@ export default function TonePracticePage() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gray-50">
+    <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between p-5 bg-white border-b border-gray-200">
+      <div className="flex items-center justify-between p-5 bg-white border-b border-gray-200 flex-shrink-0">
         <Link href="/practice">
           <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
             <ArrowLeft className="text-gray-700 h-6 w-6" />
@@ -591,7 +591,7 @@ export default function TonePracticePage() {
       </div>
 
       {/* Content */}
-      <div className="flex-grow overflow-y-auto px-6 py-6 pb-8">
+      <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="w-full max-w-md mx-auto space-y-6">
           {/* Goal & Instructions */}
           <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200">
@@ -797,7 +797,7 @@ export default function TonePracticePage() {
       </div>
 
       {/* Bottom Controls */}
-      <div className="p-6 bg-white border-t border-gray-200">
+      <div className="p-6 bg-white border-t border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between max-w-md mx-auto">
           {/* Start/Pause Button */}
           <button
@@ -835,18 +835,6 @@ export default function TonePracticePage() {
           >
             Done
           </button>
-        </div>
-
-        {/* Progress Dots */}
-        <div className="flex justify-center mt-4 gap-2">
-          {[1, 2, 3, 4, 5].map((dot) => (
-            <div
-              key={dot}
-              className={`w-2 h-2 rounded-full ${
-                dot === 1 ? "bg-gray-800" : "bg-gray-300"
-              }`}
-            />
-          ))}
         </div>
       </div>
 
