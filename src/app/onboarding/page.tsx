@@ -7,18 +7,24 @@ import InputField from "@/components/ui/InputField";
 export default function OnboardingPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    confirmPassword: "",
+    gender: "female", // 기본값은 female
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleGenderChange = (gender: string) => {
+    setFormData({
+      ...formData,
+      gender,
     });
   };
 
@@ -32,10 +38,6 @@ export default function OnboardingPage() {
       });
     } else {
       // Handle signup
-      if (formData.password !== formData.confirmPassword) {
-        alert("Passwords don't match!");
-        return;
-      }
       console.log("Signup:", formData);
     }
   };
@@ -46,16 +48,14 @@ export default function OnboardingPage() {
       name: "",
       email: "",
       password: "",
-      confirmPassword: "",
+      gender: "female",
     });
     setShowPassword(false);
-    setShowConfirmPassword(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4 py-8">
       <div className="w-full max-w-md max-h-screen overflow-y-auto">
-        {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">VocalFlow</h1>
           <p className="text-gray-600">
@@ -63,7 +63,6 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        {/* Form Container */}
         <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
           {/* Toggle Buttons */}
           <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
@@ -91,9 +90,7 @@ export default function OnboardingPage() {
             </button>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name Field (Signup only) */}
             <InputField
               type="text"
               name="name"
@@ -104,8 +101,6 @@ export default function OnboardingPage() {
               icon={User}
               isVisible={!isLogin}
             />
-
-            {/* Email Field */}
             <InputField
               type="email"
               name="email"
@@ -115,8 +110,6 @@ export default function OnboardingPage() {
               required
               icon={Mail}
             />
-
-            {/* Password Field */}
             <InputField
               type="password"
               name="password"
@@ -129,23 +122,45 @@ export default function OnboardingPage() {
               onTogglePassword={() => setShowPassword(!showPassword)}
             />
 
-            {/* Confirm Password Field (Signup only) */}
-            <InputField
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              required={!isLogin}
-              icon={Lock}
-              showPassword={showConfirmPassword}
-              onTogglePassword={() =>
-                setShowConfirmPassword(!showConfirmPassword)
-              }
-              isVisible={!isLogin}
-            />
+            {/* Gender Toggle (Signup only) */}
+            <div
+              className={`transition-all duration-300 ${
+                isLogin
+                  ? "max-h-0 opacity-0 pointer-events-none"
+                  : "max-h-24 opacity-100"
+              }`}
+            >
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gender
+                </label>
+                <div className="flex bg-gray-100 rounded-2xl p-1">
+                  <button
+                    type="button"
+                    onClick={() => handleGenderChange("female")}
+                    className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-300 ${
+                      formData.gender === "female"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Female
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleGenderChange("male")}
+                    className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-300 ${
+                      formData.gender === "male"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Male
+                  </button>
+                </div>
+              </div>
+            </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-2xl font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center group mt-6"
@@ -169,7 +184,6 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center mt-6 text-sm text-gray-500">
           By continuing, you agree to our{" "}
           <a href="#" className="text-blue-600 hover:text-blue-700">

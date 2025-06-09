@@ -24,6 +24,7 @@ export default function PracticePage({ params }: PracticePageProps) {
   const startTimeRef = useRef<number>(0);
   const scoreFlashTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rangeChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastVoiceLogRef = useRef<number>(0);
 
   // 상태 관리
   const [selectedRange, setSelectedRange] = useState<string>("female");
@@ -64,9 +65,42 @@ export default function PracticePage({ params }: PracticePageProps) {
 
   const handlePitchDetected = useCallback(
     (frequency: number, audioData: Float32Array) => {
-      setCurrentFrequency(frequency);
+      // 🎤 목소리 범위 필터링
+      const isVoiceRange =
+        selectedRange === "male"
+          ? frequency >= 80 && frequency <= 500 // 남성 목소리 범위
+          : frequency >= 150 && frequency <= 1000; // 여성 목소리 범위
 
-      if (animationState.isPlaying && levelData?.scale) {
+      // 오디오 레벨 체크 (너무 작거나 큰 소리 제외)
+      const audioLevel = Math.max(...Array.from(audioData));
+      const isValidAudioLevel = audioLevel > 0.02 && audioLevel < 0.8;
+
+      // 목소리 범위이고 적절한 볼륨일 때만 처리
+      if (isVoiceRange && isValidAudioLevel) {
+        setCurrentFrequency(frequency);
+
+        // 🎤 의미있는 목소리 감지 시에만 로그 (5초마다 한 번)
+        const now = Date.now();
+        if (now - lastVoiceLogRef.current > 5000) {
+          console.log("🎤 Voice Detected:", {
+            frequency: frequency.toFixed(2) + " Hz",
+            audioLevel: audioLevel.toFixed(4),
+            range: selectedRange,
+            timestamp: new Date().toLocaleTimeString(),
+          });
+          lastVoiceLogRef.current = now;
+        }
+      } else {
+        // 목소리 범위가 아니면 주파수 초기화
+        setCurrentFrequency(null);
+      }
+
+      if (
+        animationState.isPlaying &&
+        levelData?.scale &&
+        isVoiceRange &&
+        isValidAudioLevel
+      ) {
         const currentTime = performance.now();
         const currentNoteIndex = Math.floor(
           (currentTime - startTimeRef.current) / 1000 / beatDuration
@@ -78,7 +112,16 @@ export default function PracticePage({ params }: PracticePageProps) {
         ) {
           const expectedNote = levelData.scale[currentNoteIndex];
 
+          // 🎵 음성 평가는 실제 평가가 실행될 때만 로그
           if (currentTime - lastEvaluationTime > 500) {
+            console.log("🎵 Voice Evaluation:", {
+              expectedNote,
+              detectedFrequency: frequency.toFixed(2) + " Hz",
+              noteIndex: currentNoteIndex,
+              totalNotes: levelData.scale.length,
+              audioLevel: audioLevel.toFixed(4),
+            });
+
             evaluateUserVoice(expectedNote, frequency, audioData);
             setLastEvaluationTime(currentTime);
           }
@@ -90,11 +133,21 @@ export default function PracticePage({ params }: PracticePageProps) {
       levelData?.scale,
       beatDuration,
       lastEvaluationTime,
+      selectedRange, // selectedRange 의존성 추가
     ]
   );
 
   const { isMicActive, hasMicPermission, toggleMicrophone } =
     useMicrophone(handlePitchDetected);
+
+  // 🎤 마이크 상태 변화 모니터링
+  useEffect(() => {
+    console.log("🎤 Microphone Status Changed:", {
+      isMicActive,
+      hasMicPermission,
+      timestamp: new Date().toLocaleTimeString(),
+    });
+  }, [isMicActive, hasMicPermission]);
 
   // 컴포넌트 언마운트 시 timeout 정리
   useEffect(() => {
@@ -243,7 +296,12 @@ export default function PracticePage({ params }: PracticePageProps) {
         </p>
 
         {/* 음표 위치 시각화 */}
-        <PitchStaff notesToDisplay={visibleNotes} />
+        <PitchStaff
+          notesToDisplay={visibleNotes}
+          userFrequency={currentFrequency}
+          showUserPitch={isMicActive && currentFrequency !== null}
+          selectedRange={selectedRange}
+        />
       </div>
 
       {/* 점수 표시 - 점수 플래시 효과 적용 */}

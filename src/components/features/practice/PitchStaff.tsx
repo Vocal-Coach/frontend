@@ -1,5 +1,6 @@
 import React from "react";
 import NoteRect from "./NoteRect";
+import UserPitchMarker from "./UserPitchMarker";
 
 interface Note {
   text: string;
@@ -12,12 +13,18 @@ interface PitchStaffProps {
   notesToDisplay: Note[];
   targetLineVisible?: boolean;
   pitchPathData?: React.ReactNode;
+  userFrequency?: number | null;
+  showUserPitch?: boolean;
+  selectedRange?: string;
 }
 
 const PitchStaff: React.FC<PitchStaffProps> = ({
   notesToDisplay,
   targetLineVisible = true,
   pitchPathData,
+  userFrequency = null,
+  showUserPitch = false,
+  selectedRange = "female",
 }) => {
   // 음표 높이 순서 정의 (낮은 음부터 높은 음까지)
   const noteOrder = [
@@ -134,6 +141,13 @@ const PitchStaff: React.FC<PitchStaffProps> = ({
             positionClass={note.positionClass}
           />
         ))}
+
+        {/* 사용자 피치 마커 */}
+        <UserPitchMarker
+          frequency={userFrequency}
+          isVisible={showUserPitch}
+          selectedRange={selectedRange}
+        />
       </div>
 
       {/* 피치 경로 라인 (선택적) */}
