@@ -14,7 +14,7 @@ export default function Levels() {
           </button>
         </Link>
         <h2 className="text-xl font-semibold text-gray-800 text-center flex-grow">
-          Practice Levels
+          Evaluation
         </h2>
         <div className="w-10"></div>
       </div>
@@ -24,7 +24,7 @@ export default function Levels() {
           {" "}
           {/* 카드 사이 간격 조정 */}
           {levels.map((level) => (
-            <Link href={`/practice/${level.id}`} key={level.id}>
+            <Link href={`/evaluate/${level.id}`} key={level.id}>
               <div className="bg-white p-5 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer mb-4">
                 <h3 className={`text-lg font-semibold ${level.accentColor}`}>
                   Level {level.id}: {level.title.split(":")[1].trim()}

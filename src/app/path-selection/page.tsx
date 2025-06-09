@@ -14,18 +14,18 @@ export default function PathSelection() {
       <div className="space-y-5 w-full max-w-sm mx-auto">
         <Link href="/levels">
           <Card
-            title="Practice Exercises"
-            description="Access targeted exercises to improve your vocal skills."
-            icon={<BarChartBig className="text-purple-600" />}
-            accentColorClass="text-purple-600"
+            title="Evaluate My Voice"
+            description="Get a quick analysis of your pitch, tone, and range."
+            icon={<Mic className="text-indigo-600" />}
+            accentColorClass="text-indigo-600"
           />
         </Link>
 
         <Card
-          title="Evaluate My Voice"
-          description="Get a quick analysis of your pitch, tone, and range."
-          icon={<Mic className="text-indigo-600" />}
-          accentColorClass="text-indigo-600"
+          title="Practice Exercises"
+          description="Access targeted exercises to improve your vocal skills."
+          icon={<BarChartBig className="text-purple-600" />}
+          accentColorClass="text-purple-600"
           onClick={() =>
             alert("This feature will be available in a future update.")
           }
