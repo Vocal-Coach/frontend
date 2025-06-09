@@ -868,20 +868,9 @@ export default function TonePracticePage() {
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 mb-4">
               <p className="text-sm text-gray-600 mb-1">Final Score</p>
               <p className="text-3xl font-bold text-blue-600 mb-2">
-                {finalScore}
+                {finalScore}/1000
               </p>
             </div>
-
-            {/* Performance Message */}
-            <p className="text-sm text-gray-600">
-              {finalScore >= 9000
-                ? "Excellent tone control!"
-                : finalScore >= 6000
-                ? "Good tone technique!"
-                : finalScore >= 3000
-                ? "Keep practicing!"
-                : "Try to maintain consistent tone throughout"}
-            </p>
 
             <div className="space-y-3">
               <button

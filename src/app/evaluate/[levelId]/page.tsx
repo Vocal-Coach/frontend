@@ -65,18 +65,33 @@ export default function PracticePage({ params }: PracticePageProps) {
 
   const handlePitchDetected = useCallback(
     (frequency: number, audioData: Float32Array) => {
-      // 🎤 목소리 범위 필터링
+      // 🎤 목소리 범위 필터링 (범위 확장)
       const isVoiceRange =
         selectedRange === "male"
-          ? frequency >= 80 && frequency <= 500 // 남성 목소리 범위
-          : frequency >= 150 && frequency <= 1000; // 여성 목소리 범위
+          ? frequency >= 70 && frequency <= 600 // 남성 목소리 범위 확장
+          : frequency >= 120 && frequency <= 1200; // 여성 목소리 범위 확장
 
-      // 오디오 레벨 체크 (너무 작거나 큰 소리 제외)
+      // 오디오 레벨 체크 (더 엄격하게 조정)
       const audioLevel = Math.max(...Array.from(audioData));
-      const isValidAudioLevel = audioLevel > 0.02 && audioLevel < 0.8;
+      const rmsLevel = Math.sqrt(
+        audioData.reduce((sum, sample) => sum + sample * sample, 0) /
+          audioData.length
+      );
 
-      // 목소리 범위이고 적절한 볼륨일 때만 처리
-      if (isVoiceRange && isValidAudioLevel) {
+      // 의도적인 발성 감지를 위한 조건들
+      const isValidAudioLevel = audioLevel > 0.02; // 최소 오디오 레벨
+      const isStrongSignal = rmsLevel > 0.01; // RMS 레벨로 신호 강도 체크
+      const isConsistentPitch = frequency > 0 && frequency < 2000; // 유효한 피치 범위
+
+      // 실제 노래/발성으로 판단되는 조건
+      const isSinging =
+        isVoiceRange &&
+        isValidAudioLevel &&
+        isStrongSignal &&
+        isConsistentPitch;
+
+      // 목소리 범위이고 충분한 신호 강도일 때만 처리
+      if (isSinging) {
         setCurrentFrequency(frequency);
 
         // 🎤 의미있는 목소리 감지 시에만 로그 (5초마다 한 번)
@@ -85,26 +100,39 @@ export default function PracticePage({ params }: PracticePageProps) {
           console.log("🎤 Voice Detected:", {
             frequency: frequency.toFixed(2) + " Hz",
             audioLevel: audioLevel.toFixed(4),
+            rmsLevel: rmsLevel.toFixed(4),
             range: selectedRange,
             timestamp: new Date().toLocaleTimeString(),
           });
           lastVoiceLogRef.current = now;
         }
       } else {
-        // 목소리 범위가 아니면 주파수 초기화
+        // 노래가 아니면 주파수 초기화
         setCurrentFrequency(null);
       }
 
       if (
         animationState.isPlaying &&
         levelData?.scale &&
-        isVoiceRange &&
-        isValidAudioLevel
+        isSinging // 조건 변경: 실제 노래할 때만
       ) {
         const currentTime = performance.now();
         const currentNoteIndex = Math.floor(
           (currentTime - startTimeRef.current) / 1000 / beatDuration
         );
+
+        console.log("🎵 Evaluation conditions check:", {
+          isPlaying: animationState.isPlaying,
+          hasScale: !!levelData?.scale,
+          isSinging,
+          audioLevel: audioLevel.toFixed(4),
+          rmsLevel: rmsLevel.toFixed(4),
+          currentTime,
+          startTime: startTimeRef.current,
+          timeDiff: currentTime - startTimeRef.current,
+          currentNoteIndex,
+          scaleLength: levelData?.scale?.length || 0,
+        });
 
         if (
           currentNoteIndex >= 0 &&
@@ -112,19 +140,40 @@ export default function PracticePage({ params }: PracticePageProps) {
         ) {
           const expectedNote = levelData.scale[currentNoteIndex];
 
-          // 🎵 음성 평가는 실제 평가가 실행될 때만 로그
-          if (currentTime - lastEvaluationTime > 500) {
+          // 🎵 음성 평가는 300ms마다 실행
+          if (currentTime - lastEvaluationTime > 300) {
             console.log("🎵 Voice Evaluation:", {
               expectedNote,
               detectedFrequency: frequency.toFixed(2) + " Hz",
               noteIndex: currentNoteIndex,
               totalNotes: levelData.scale.length,
               audioLevel: audioLevel.toFixed(4),
+              rmsLevel: rmsLevel.toFixed(4),
             });
 
             evaluateUserVoice(expectedNote, frequency, audioData);
             setLastEvaluationTime(currentTime);
           }
+        } else {
+          console.log("🎵 Note index out of range:", {
+            currentNoteIndex,
+            scaleLength: levelData.scale.length,
+          });
+        }
+      } else {
+        // 조건이 만족되지 않을 때 로그 (노래하지 않을 때는 로그 줄이기)
+        if (animationState.isPlaying && !isSinging) {
+          console.log("🎵 Not singing - conditions NOT met:", {
+            isPlaying: animationState.isPlaying,
+            hasScale: !!levelData?.scale,
+            isVoiceRange,
+            isValidAudioLevel,
+            isStrongSignal,
+            isSinging,
+            frequency: frequency.toFixed(2),
+            audioLevel: audioLevel.toFixed(4),
+            rmsLevel: rmsLevel.toFixed(4),
+          });
         }
       }
     },
@@ -133,7 +182,7 @@ export default function PracticePage({ params }: PracticePageProps) {
       levelData?.scale,
       beatDuration,
       lastEvaluationTime,
-      selectedRange, // selectedRange 의존성 추가
+      selectedRange,
     ]
   );
 
@@ -175,6 +224,14 @@ export default function PracticePage({ params }: PracticePageProps) {
     // 현재 점수
     const currentScore = animationState.score;
 
+    console.log("🔍 Before Evaluation:", {
+      expectedNote,
+      frequency: frequency.toFixed(2),
+      currentScore,
+      audioDataLength: audioData.length,
+      audioLevel: Math.max(...Array.from(audioData)).toFixed(4),
+    });
+
     // 음성 평가 실행
     const evaluationResult = evaluateVocalPerformance(
       expectedNote,
@@ -182,8 +239,23 @@ export default function PracticePage({ params }: PracticePageProps) {
       currentScore
     );
 
+    console.log("🎯 Evaluation Result:", {
+      expectedNote,
+      frequency: frequency.toFixed(2),
+      pitchAccuracy: evaluationResult.pitchAccuracy.toFixed(1),
+      vibratoQuality: evaluationResult.vibratoQuality.toFixed(1),
+      noteHit: evaluationResult.noteHit,
+      oldScore: currentScore,
+      newScore: evaluationResult.totalScore,
+      scoreIncrease: evaluationResult.totalScore - currentScore,
+    });
+
     // 점수가 변경되었다면 점수 업데이트 및 애니메이션
     if (evaluationResult.totalScore > currentScore) {
+      console.log(
+        `🚀 Updating score from ${currentScore} to ${evaluationResult.totalScore}`
+      );
+
       // 점수 업데이트
       updateScore(evaluationResult.totalScore);
 
@@ -198,6 +270,20 @@ export default function PracticePage({ params }: PracticePageProps) {
       scoreFlashTimeoutRef.current = setTimeout(
         () => setScoreFlash(false),
         500
+      );
+
+      console.log(
+        `💰 Score Updated: ${currentScore} → ${evaluationResult.totalScore} (+${
+          evaluationResult.totalScore - currentScore
+        })`
+      );
+    } else {
+      console.log(
+        `❌ No score increase - Note: ${expectedNote}, Accuracy: ${evaluationResult.pitchAccuracy.toFixed(
+          1
+        )}%, Hit: ${evaluationResult.noteHit}, Current: ${currentScore}, New: ${
+          evaluationResult.totalScore
+        }`
       );
     }
   };
@@ -223,11 +309,46 @@ export default function PracticePage({ params }: PracticePageProps) {
   };
 
   // 재생/일시정지 토글 핸들러
-  const handlePlayPauseClick = () => {
+  const handlePlayPauseClick = async () => {
+    console.log("🎮 Play/Pause clicked:", {
+      currentlyPlaying: animationState.isPlaying,
+      micActive: isMicActive,
+    });
+
     if (animationState.isPlaying) {
+      // 일시정지 - 마이크 끄기
+      console.log("⏸️ Pausing animation and mic");
       stopAnimation();
+      if (isMicActive) {
+        toggleMicrophone();
+      }
     } else {
+      // 재생 시작 - 마이크 자동으로 켜기
+      console.log("▶️ Starting animation and mic");
+
+      if (!isMicActive) {
+        console.log("🎤 Turning on microphone");
+        toggleMicrophone();
+        // 마이크 초기화를 위해 잠시 대기
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+
+      // 애니메이션 시작 시 startTimeRef 설정
+      startTimeRef.current = performance.now();
+      console.log(
+        "🚀 Starting animation with startTime:",
+        startTimeRef.current
+      );
+
       startAnimation();
+
+      // 애니메이션 시작 확인
+      setTimeout(() => {
+        console.log("✅ Animation state after start:", {
+          isPlaying: animationState.isPlaying,
+          startTime: startTimeRef.current,
+        });
+      }, 100);
     }
   };
 
