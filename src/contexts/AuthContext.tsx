@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(true);
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(error.status === 401 ? '이메일 또는 비밀번호가 잘못되었습니다.' : '로그인에 실패했습니다.');
+        throw new Error(error.status === 401 ? 'Invalid email or password.' : 'Login failed.');
       }
       throw error;
     }
@@ -57,11 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 409) {
-          throw new Error('이미 존재하는 이메일입니다.');
+          throw new Error('Email already exists.');
         } else if (error.status === 400) {
-          throw new Error('입력한 정보를 다시 확인해주세요.');
+          throw new Error('Please check your information again.');
         }
-        throw new Error('회원가입에 실패했습니다.');
+        throw new Error('Registration failed.');
       }
       throw error;
     }
