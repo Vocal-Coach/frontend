@@ -251,7 +251,7 @@ export default function TonePracticePage() {
         // Only update score if behavior was correct
         if (shouldAwardPoints && points > 0) {
           const oldScore = currentScoreRef.current;
-          const newScore = Math.min(10000, currentScoreRef.current + points);
+          const newScore = Math.min(1000, currentScoreRef.current + points);
           setScore(newScore);
           currentScoreRef.current = newScore;
           console.log(
@@ -663,58 +663,89 @@ export default function TonePracticePage() {
 
               {/* Current Syllable */}
               <div className="mb-4">
-                <div
-                  className={`text-4xl font-bold mb-2 ${
-                    currentSyllable === "mom"
-                      ? "text-blue-600"
-                      : currentSyllable === "moh"
-                      ? "text-purple-600"
-                      : "text-gray-600"
-                  }`}
-                >
-                  {isPlaying
-                    ? currentSyllable === "mom"
-                      ? "Mom"
-                      : "Moh"
-                    : "Ready to Start"}
+                {/* Syllable Display with Multiple Notes */}
+                <div className="relative h-32 bg-gray-50 rounded-xl p-4 mb-4">
+                  {/* Staff Lines */}
+                  <div className="absolute inset-4">
+                    {[1, 2, 3, 4, 5].map((line) => (
+                      <div
+                        key={line}
+                        className="absolute left-0 right-0 h-px bg-gray-300"
+                        style={{ top: `${(line - 1) * 25}%` }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Notes */}
+                  <div className="relative h-full flex items-center justify-center">
+                    {/* Mom Note (Lower) */}
+                    <div className="absolute left-1/4 flex flex-col items-center">
+                      <div
+                        className={`w-12 h-8 rounded-full border-2 flex items-center justify-center font-semibold text-sm transition-all duration-300 ${
+                          currentSyllable === "mom" && isPlaying
+                            ? "bg-blue-500 border-blue-600 text-white scale-110 shadow-lg"
+                            : "bg-white border-blue-400 text-blue-600"
+                        }`}
+                        style={{ top: "60%" }}
+                      >
+                        Mom
+                      </div>
+                      {currentSyllable === "mom" && isPlaying && (
+                        <div className="mt-2 text-xs text-blue-600 font-medium animate-pulse">
+                          {Math.ceil(syllableTimer)}s
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Moh Note (Higher) */}
+                    <div className="absolute right-1/4 flex flex-col items-center">
+                      <div
+                        className={`w-12 h-8 rounded-full border-2 flex items-center justify-center font-semibold text-sm transition-all duration-300 ${
+                          currentSyllable === "moh" && isPlaying
+                            ? "bg-purple-500 border-purple-600 text-white scale-110 shadow-lg"
+                            : "bg-white border-purple-400 text-purple-600"
+                        }`}
+                        style={{ top: "20%" }}
+                      >
+                        Moh
+                      </div>
+                      {currentSyllable === "moh" && isPlaying && (
+                        <div className="mt-2 text-xs text-purple-600 font-medium animate-pulse">
+                          {Math.ceil(syllableTimer)}s
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Connection Line */}
+                    {isPlaying && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg
+                          width="60%"
+                          height="100%"
+                          className="absolute"
+                          style={{ left: "20%" }}
+                        >
+                          <path
+                            d="M 20 75 Q 50 45 80 35"
+                            stroke={
+                              currentSyllable === "mom" ? "#3b82f6" : "#8b5cf6"
+                            }
+                            strokeWidth="2"
+                            fill="none"
+                            strokeDasharray="4,4"
+                            className="opacity-60"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600">
+
+                <p className="text-sm text-gray-600 text-center">
                   {isPlaying
                     ? getSyllableInstruction()
                     : "Press Start to begin tone exercise"}
                 </p>
-              </div>
-
-              {/* Microphone Level Visualization */}
-              <div className="mb-4">
-                <div className="w-full bg-gray-200 rounded-full h-6 mb-2 relative">
-                  <div
-                    className={`bg-gradient-to-r ${getSyllableColor()} h-6 rounded-full transition-all duration-200 flex items-center justify-center`}
-                    style={{ width: `${Math.max(5, audioLevel)}%` }}
-                  >
-                    {audioLevel > 20 && (
-                      <span className="text-white text-xs font-semibold">
-                        {Math.round(audioLevel)}%
-                      </span>
-                    )}
-                  </div>
-                  {/* Minimum visual indicator */}
-                  {audioLevel < 5 && isPlaying && (
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-gray-400 rounded-full animate-pulse"></div>
-                  )}
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-gray-500">
-                    {isPlaying
-                      ? isSinging
-                        ? "🎤 Voice detected"
-                        : "🔇 Silent"
-                      : "🎤 Microphone ready"}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Level: {Math.round(audioLevel)}%
-                  </p>
-                </div>
               </div>
 
               {/* Cycle Progress */}
