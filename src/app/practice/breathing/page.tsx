@@ -7,6 +7,7 @@ import { ArrowLeft, Play, Pause, RotateCcw, Check } from "lucide-react";
 export default function BreathingPracticePage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [breathAccuracy, setBreathAccuracy] = useState(0);
   const [score, setScore] = useState(0);
   const [finalScore, setFinalScore] = useState(0);
@@ -18,7 +19,8 @@ export default function BreathingPracticePage() {
   const [phaseTimer, setPhaseTimer] = useState(0);
   const [cycleCount, setCycleCount] = useState(0);
   const [isBreathing, setIsBreathing] = useState(false);
-  const [lastScoreTime, setLastScoreTime] = useState(0);
+  const [pausedAt, setPausedAt] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -27,12 +29,41 @@ export default function BreathingPracticePage() {
   const animationRef = useRef<number>();
   const phaseIntervalRef = useRef<NodeJS.Timeout>();
   const currentScoreRef = useRef<number>(0);
+  const allIntervalsRef = useRef<NodeJS.Timeout[]>([]);
+  const isRunningRef = useRef<boolean>(false);
+  const breathAccuracyHistoryRef = useRef<number[]>([]);
+  const lastScoreTimeRef = useRef<number>(0);
 
   // Breathing pattern: 4 seconds inhale, 2 seconds hold, 6 seconds exhale
   const breathingPattern = {
     inhale: 4000, // 4 seconds
     hold: 2000, // 2 seconds
     exhale: 6000, // 6 seconds
+  };
+
+  // Smooth breath accuracy to reduce rapid changes
+  const setSmoothedBreathAccuracy = (newAccuracy: number) => {
+    breathAccuracyHistoryRef.current.push(newAccuracy);
+
+    // Keep only last 3 values for smoothing (reduced from 5)
+    if (breathAccuracyHistoryRef.current.length > 3) {
+      breathAccuracyHistoryRef.current.shift();
+    }
+
+    // Simple average instead of weighted average
+    const sum = breathAccuracyHistoryRef.current.reduce((a, b) => a + b, 0);
+    const smoothedAccuracy = Math.round(
+      sum / breathAccuracyHistoryRef.current.length
+    );
+
+    console.log(
+      `Breath Accuracy: raw=${newAccuracy}, history=[${breathAccuracyHistoryRef.current.join(
+        ", "
+      )}], smoothed=${smoothedAccuracy}`
+    );
+
+    setBreathAccuracy(smoothedAccuracy);
+    return smoothedAccuracy;
   };
 
   useEffect(() => {
@@ -115,103 +146,170 @@ export default function BreathingPracticePage() {
     setIsBreathing(isCurrentlyBreathing);
 
     // Debug logging to see if audio is being detected
-    if (level > 5) {
-      console.log(
-        `Audio detected: ${level.toFixed(
-          1
-        )}%, Phase: ${currentPhase}, Breathing: ${isCurrentlyBreathing}, Timer: ${phaseTimer.toFixed(
-          1
-        )}s`
-      );
-    }
+    console.log(
+      `Audio Analysis: level=${level.toFixed(
+        1
+      )}%, phase=${currentPhase}, timer=${phaseTimer.toFixed(
+        1
+      )}s, isPlaying=${isPlaying}, isPaused=${isPaused}`
+    );
 
     // Score based on breathing pattern matching - only when exercise is running
-    if (isPlaying && phaseTimer > 0) {
+    if (isRunningRef.current && (isPlaying || isRecording)) {
       const currentTime = Date.now();
-      const shouldScore = currentTime - lastScoreTime > 300; // Score every 300ms (more frequent)
+      const shouldScore =
+        lastScoreTimeRef.current === 0 ||
+        currentTime - lastScoreTimeRef.current > 500; // Score every 500ms (reduced frequency)
 
-      console.log(
-        `Scoring - Phase: ${currentPhase}, Level: ${level.toFixed(
-          1
-        )}, Breathing: ${isCurrentlyBreathing}, Timer: ${phaseTimer.toFixed(
-          1
-        )}, ShouldScore: ${shouldScore}`
-      );
+      console.log(`🔍 DETAILED SCORING CHECK:`);
+      console.log(`  - isPlaying: ${isPlaying}`);
+      console.log(`  - isRecording: ${isRecording}`);
+      console.log(`  - isPaused: ${isPaused}`);
+      console.log(`  - isRunningRef.current: ${isRunningRef.current}`);
+      console.log(`  - currentTime: ${currentTime}`);
+      console.log(`  - lastScoreTimeRef.current: ${lastScoreTimeRef.current}`);
+      console.log(`  - timeDiff: ${currentTime - lastScoreTimeRef.current}ms`);
+      console.log(`  - shouldScore: ${shouldScore}`);
+      console.log(`  - currentPhase: ${currentPhase}`);
+      console.log(`  - audioLevel: ${level.toFixed(1)}%`);
 
-      // Give basic participation points every scoring interval
+      // PROPER SCORING - Only score every 500ms
       if (shouldScore) {
-        let points = 0;
-        let reason = "";
+        // Use the proper timing condition
+        let points = 0; // Start with 0 points
+        let accuracy = 0; // Start with 0 accuracy
+        let reason = "No activity detected";
+        let shouldAwardPoints = false; // Only award points for correct behavior
 
+        console.log(
+          `🎤 Audio Level: ${level.toFixed(1)}%, Phase: ${currentPhase}`
+        );
+
+        // Detailed scoring based on phase and actual audio detection
         if (currentPhase === "exhale") {
-          if (isCurrentlyBreathing && level > 8) {
-            // User is making "Hoo" sound during exhale phase - GOOD!
-            points = level > 15 ? 25 : 15;
-            reason = `Exhale with sound (level: ${level.toFixed(1)})`;
-            setBreathAccuracy(Math.min(100, level * 1.5));
-          } else if (isCurrentlyBreathing && level > 5) {
-            // User is making some sound, give partial points
+          // During exhale phase - user should make "Hoo" sound
+          if (level > 20) {
+            // Strong sound during exhale - EXCELLENT
+            points = 25;
+            accuracy = Math.min(100, 60 + level);
+            reason = `Excellent "Hoo" sound (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level > 10) {
+            // Moderate sound during exhale - GOOD
+            points = 15;
+            accuracy = Math.min(100, 40 + level * 2);
+            reason = `Good exhale sound (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level > 5) {
+            // Weak sound during exhale - OKAY
             points = 8;
-            reason = `Exhale with weak sound (level: ${level.toFixed(1)})`;
-            setBreathAccuracy(50);
+            accuracy = Math.max(20, level * 4);
+            reason = `Weak exhale sound (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
           } else {
-            // User should be making sound but isn't - still give minimal points for trying
-            points = 3;
-            reason = "Exhale phase participation";
-            setBreathAccuracy(20);
+            // No sound during exhale - BAD (NO POINTS)
+            points = 0;
+            accuracy = 10;
+            reason = `Silent during exhale - no points (${level.toFixed(1)}%)`;
+            shouldAwardPoints = false;
           }
         } else if (currentPhase === "inhale") {
-          if (!isCurrentlyBreathing && level < 15) {
-            // User is quiet during inhale - GOOD!
+          // During inhale phase - user should be quiet
+          if (level < 5) {
+            // Very quiet during inhale - EXCELLENT
+            points = 20;
+            accuracy = Math.min(100, 90 - level * 2);
+            reason = `Excellent quiet inhale (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level < 10) {
+            // Quiet during inhale - GOOD
             points = 12;
-            reason = "Inhale quietly";
-            setBreathAccuracy(85);
+            accuracy = Math.max(60, 80 - level * 3);
+            reason = `Good quiet inhale (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level < 15) {
+            // Slightly noisy during inhale - OKAY
+            points = 6;
+            accuracy = Math.max(30, 60 - level * 2);
+            reason = `Slightly noisy inhale (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
           } else {
-            // Give points for participation even if not perfect
-            points = 5;
-            reason = "Inhale phase participation";
-            setBreathAccuracy(40);
+            // Too noisy during inhale - BAD (NO POINTS)
+            points = 0;
+            accuracy = Math.max(10, 40 - level);
+            reason = `Too noisy during inhale - no points (${level.toFixed(
+              1
+            )}%)`;
+            shouldAwardPoints = false;
           }
         } else if (currentPhase === "hold") {
-          if (!isCurrentlyBreathing && level < 15) {
-            // User is quiet during hold - GOOD!
-            points = 15;
-            reason = "Hold quietly";
-            setBreathAccuracy(90);
+          // During hold phase - user should be completely silent
+          if (level < 3) {
+            // Perfect silence during hold - EXCELLENT
+            points = 30;
+            accuracy = Math.min(100, 95 - level);
+            reason = `Perfect breath hold (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level < 8) {
+            // Mostly quiet during hold - GOOD
+            points = 18;
+            accuracy = Math.max(70, 85 - level * 2);
+            reason = `Good breath hold (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
+          } else if (level < 12) {
+            // Some noise during hold - OKAY
+            points = 8;
+            accuracy = Math.max(40, 70 - level * 3);
+            reason = `Okay breath hold (${level.toFixed(1)}%)`;
+            shouldAwardPoints = true;
           } else {
-            // Give points for participation even if not perfect
-            points = 7;
-            reason = "Hold phase participation";
-            setBreathAccuracy(50);
+            // Too much noise during hold - BAD (NO POINTS)
+            points = 0;
+            accuracy = Math.max(15, 50 - level * 2);
+            reason = `Poor breath hold - no points (${level.toFixed(1)}%)`;
+            shouldAwardPoints = false;
           }
         }
 
-        // Always award some points to ensure progression
-        if (points > 0) {
-          setScore((prev) => {
-            const newScore = Math.min(10000, prev + points);
-            currentScoreRef.current = newScore;
-            console.log(
-              `SCORE UPDATE - ${reason}: ${prev} + ${points} = ${newScore}`
-            );
-            return newScore;
-          });
-          setLastScoreTime(currentTime);
+        console.log(
+          `🎯 DETAILED SCORING - Phase: ${currentPhase}, Audio: ${level.toFixed(
+            1
+          )}%, Points: ${points}, Accuracy: ${accuracy}%, Award: ${shouldAwardPoints}, Reason: ${reason}`
+        );
+
+        // Update breath accuracy immediately (always update for feedback)
+        setBreathAccuracy(accuracy);
+        console.log(`🎯 Set breath accuracy to: ${accuracy}%`);
+
+        // Only update score if behavior was correct
+        if (shouldAwardPoints && points > 0) {
+          const oldScore = currentScoreRef.current;
+          const newScore = Math.min(10000, currentScoreRef.current + points);
+          setScore(newScore);
+          currentScoreRef.current = newScore;
+          console.log(
+            `💰 SCORE AWARDED: ${oldScore} + ${points} = ${newScore}`
+          );
         } else {
-          // Fallback: give minimal points just for participating
-          setScore((prev) => {
-            const newScore = Math.min(10000, prev + 2);
-            currentScoreRef.current = newScore;
-            console.log(
-              `FALLBACK SCORE - Basic participation: ${prev} + 2 = ${newScore}`
-            );
-            return newScore;
-          });
-          setLastScoreTime(currentTime);
+          console.log(`❌ NO POINTS AWARDED - Incorrect breathing pattern`);
         }
+
+        lastScoreTimeRef.current = currentTime;
+
+        console.log(
+          `📊 FINAL VALUES - Score: ${currentScoreRef.current}, Accuracy: ${accuracy}%`
+        );
+      } else {
+        console.log(
+          `⏸️ Not scoring yet - waiting for next interval (${
+            500 - (currentTime - lastScoreTimeRef.current)
+          }ms remaining)`
+        );
       }
-    } else if (!isPlaying) {
-      setBreathAccuracy(0);
+    } else {
+      console.log(
+        `❌ Not scoring - isRunningRef: ${isRunningRef.current}, isPlaying: ${isPlaying}, isRecording: ${isRecording}, isPaused: ${isPaused}`
+      );
     }
 
     // Continue animation if audio context is still active
@@ -225,177 +323,203 @@ export default function BreathingPracticePage() {
 
   const startBreathingCycle = () => {
     console.log("startBreathingCycle called");
-    setCurrentPhase("inhale");
-    setPhaseTimer(4); // Set initial timer
-    setCycleCount(0);
-    console.log("Initial states set: phase=inhale, timer=4, cycle=0");
+    // Don't reset phase and timer here - they're already set in handleStart
+    console.log(
+      `Starting with: phase=${currentPhase}, timer=${phaseTimer}, cycle=${cycleCount}`
+    );
 
-    const runCycle = (currentCycle: number) => {
-      console.log(
-        `Starting cycle ${currentCycle + 1}, isRecording:`,
-        isRecording
-      );
+    let currentCycle = 0;
+    let currentPhaseIndex = 0; // 0: inhale, 1: hold, 2: exhale
+    const phases = [
+      { name: "inhale", duration: 4 },
+      { name: "hold", duration: 2 },
+      { name: "exhale", duration: 6 },
+    ];
+    let timeRemaining = 4; // Start with inhale duration
 
-      if (currentCycle >= 5) {
-        console.log(
-          "All 5 cycles completed - stopping exercise and showing results"
-        );
-        setIsRecording(false);
-        setIsPlaying(false);
-
-        // Save final score before cleanup using ref for accurate value
-        const finalScoreValue = currentScoreRef.current;
-        setFinalScore(finalScoreValue);
-        console.log(`Exercise completed! Final score: ${finalScoreValue}`);
-
-        // Clean up audio resources
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-        }
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
-        }
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-        }
-
-        // Show completion modal after a short delay
-        setTimeout(() => {
-          setIsCompleted(true);
-        }, 500);
-        return;
+    const timerInterval = setInterval(() => {
+      // Check if paused
+      if (!isRunningRef.current) {
+        return; // Don't update timer when paused
       }
 
-      // Inhale phase
-      console.log("Starting INHALE phase");
-      setCurrentPhase("inhale");
-      let startTime = Date.now();
-      setPhaseTimer(breathingPattern.inhale / 1000);
+      timeRemaining -= 0.1;
+      setPhaseTimer(timeRemaining);
 
-      const inhaleInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(
-          0,
-          (breathingPattern.inhale - elapsed) / 1000
-        );
-        setPhaseTimer(remaining);
-        if (remaining <= 0) {
-          clearInterval(inhaleInterval);
-        }
-      }, 100);
+      console.log(
+        `Timer: ${timeRemaining.toFixed(1)}s, Phase: ${
+          phases[currentPhaseIndex].name
+        }, Cycle: ${currentCycle + 1}`
+      );
 
-      setTimeout(() => {
-        clearInterval(inhaleInterval);
-        console.log("Inhale phase completed, checking if still recording...");
+      if (timeRemaining <= 0) {
+        // Move to next phase
+        currentPhaseIndex++;
 
-        // Hold phase
-        console.log("Starting HOLD phase");
-        setCurrentPhase("hold");
-        startTime = Date.now();
-        setPhaseTimer(breathingPattern.hold / 1000);
+        if (currentPhaseIndex >= phases.length) {
+          // Completed one full cycle
+          currentCycle++;
+          setCycleCount(currentCycle);
 
-        const holdInterval = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          const remaining = Math.max(
-            0,
-            (breathingPattern.hold - elapsed) / 1000
-          );
-          setPhaseTimer(remaining);
-          if (remaining <= 0) {
-            clearInterval(holdInterval);
+          if (currentCycle >= 5) {
+            // All cycles completed
+            console.log("All 5 cycles completed!");
+            clearInterval(timerInterval);
+
+            setIsRecording(false);
+            setIsPlaying(false);
+
+            // Save final score
+            const finalScoreValue = currentScoreRef.current;
+            setFinalScore(finalScoreValue);
+            console.log(`Exercise completed! Final score: ${finalScoreValue}`);
+
+            // Clean up resources
+            if (animationRef.current) {
+              cancelAnimationFrame(animationRef.current);
+            }
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach((track) => track.stop());
+              streamRef.current = null;
+            }
+            if (audioContextRef.current) {
+              audioContextRef.current.close();
+              audioContextRef.current = null;
+            }
+
+            setTimeout(() => {
+              setIsCompleted(true);
+            }, 500);
+            return;
           }
-        }, 100);
 
-        setTimeout(() => {
-          clearInterval(holdInterval);
-          console.log("Hold phase completed, checking if still recording...");
+          // Start next cycle
+          currentPhaseIndex = 0;
+        }
 
-          // Exhale phase
-          console.log("Starting EXHALE phase");
-          setCurrentPhase("exhale");
-          startTime = Date.now();
-          setPhaseTimer(breathingPattern.exhale / 1000);
+        // Set up next phase
+        const nextPhase = phases[currentPhaseIndex];
+        setCurrentPhase(nextPhase.name as "inhale" | "hold" | "exhale");
+        timeRemaining = nextPhase.duration;
+        setPhaseTimer(timeRemaining);
 
-          const exhaleInterval = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            const remaining = Math.max(
-              0,
-              (breathingPattern.exhale - elapsed) / 1000
-            );
-            setPhaseTimer(remaining);
-            if (remaining <= 0) {
-              clearInterval(exhaleInterval);
+        console.log(
+          `Starting ${nextPhase.name} phase, duration: ${nextPhase.duration}s`
+        );
+      }
+    }, 100); // Update every 100ms
+
+    // Store interval for cleanup
+    allIntervalsRef.current.push(timerInterval);
+  };
+
+  const startBreathingCycleFromPause = () => {
+    console.log("startBreathingCycleFromPause called");
+    console.log(
+      `Resuming from: phase=${currentPhase}, timer=${phaseTimer}, cycle=${cycleCount}`
+    );
+
+    // Get current state
+    let currentCycle = cycleCount;
+    const phases = [
+      { name: "inhale", duration: 4 },
+      { name: "hold", duration: 2 },
+      { name: "exhale", duration: 6 },
+    ];
+
+    // Find current phase index
+    let currentPhaseIndex = phases.findIndex((p) => p.name === currentPhase);
+    if (currentPhaseIndex === -1) currentPhaseIndex = 0;
+
+    // Use remaining time from pause
+    let timeRemaining = phaseTimer;
+
+    const timerInterval = setInterval(() => {
+      // Check if paused
+      if (!isRunningRef.current) {
+        return; // Don't update timer when paused
+      }
+
+      timeRemaining -= 0.1;
+      setPhaseTimer(timeRemaining);
+
+      console.log(
+        `Resume Timer: ${timeRemaining.toFixed(1)}s, Phase: ${
+          phases[currentPhaseIndex].name
+        }, Cycle: ${currentCycle + 1}`
+      );
+
+      if (timeRemaining <= 0) {
+        // Move to next phase
+        currentPhaseIndex++;
+
+        if (currentPhaseIndex >= phases.length) {
+          // Completed one full cycle
+          currentCycle++;
+          setCycleCount(currentCycle);
+
+          if (currentCycle >= 5) {
+            // All cycles completed
+            console.log("All 5 cycles completed!");
+            clearInterval(timerInterval);
+
+            setIsRecording(false);
+            setIsPlaying(false);
+
+            // Save final score
+            const finalScoreValue = currentScoreRef.current;
+            setFinalScore(finalScoreValue);
+            console.log(`Exercise completed! Final score: ${finalScoreValue}`);
+
+            // Clean up resources
+            if (animationRef.current) {
+              cancelAnimationFrame(animationRef.current);
             }
-          }, 100);
-
-          setTimeout(() => {
-            clearInterval(exhaleInterval);
-            console.log("Exhale phase completed");
-
-            const nextCycle = currentCycle + 1;
-            setCycleCount(nextCycle);
-            console.log(
-              `Completed cycle ${currentCycle + 1}, starting cycle ${
-                nextCycle + 1
-              }`
-            );
-
-            if (nextCycle < 5) {
-              runCycle(nextCycle);
-            } else {
-              console.log(
-                "All 5 cycles completed - stopping exercise and showing results"
-              );
-              setIsRecording(false);
-              setIsPlaying(false);
-
-              // Save final score before cleanup using ref for accurate value
-              const finalScoreValue = currentScoreRef.current;
-              setFinalScore(finalScoreValue);
-              console.log(
-                `Exercise completed! Final score: ${finalScoreValue}`
-              );
-
-              // Clean up audio resources
-              if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-              }
-              if (streamRef.current) {
-                streamRef.current.getTracks().forEach((track) => track.stop());
-                streamRef.current = null;
-              }
-              if (audioContextRef.current) {
-                audioContextRef.current.close();
-                audioContextRef.current = null;
-              }
-
-              // Show completion modal after a short delay
-              setTimeout(() => {
-                setIsCompleted(true);
-              }, 500);
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach((track) => track.stop());
+              streamRef.current = null;
             }
-          }, breathingPattern.exhale);
-        }, breathingPattern.hold);
-      }, breathingPattern.inhale);
-    };
+            if (audioContextRef.current) {
+              audioContextRef.current.close();
+              audioContextRef.current = null;
+            }
 
-    // Start immediately
-    setTimeout(() => {
-      console.log("About to start first cycle");
-      runCycle(0);
-    }, 100); // Small delay to ensure state is set
+            setTimeout(() => {
+              setIsCompleted(true);
+            }, 500);
+            return;
+          }
+
+          // Start next cycle
+          currentPhaseIndex = 0;
+        }
+
+        // Set up next phase
+        const nextPhase = phases[currentPhaseIndex];
+        setCurrentPhase(nextPhase.name as "inhale" | "hold" | "exhale");
+        timeRemaining = nextPhase.duration;
+        setPhaseTimer(timeRemaining);
+
+        console.log(
+          `Starting ${nextPhase.name} phase, duration: ${nextPhase.duration}s`
+        );
+      }
+    }, 100); // Update every 100ms
+
+    // Store interval for cleanup
+    allIntervalsRef.current.push(timerInterval);
   };
 
   const handleStart = async () => {
     if (!isPlaying) {
+      // Starting fresh exercise
       console.log("Starting exercise...");
       const audioInitialized = await initializeAudio();
       if (audioInitialized) {
         console.log("Audio initialized, setting states...");
         setIsPlaying(true);
         setIsRecording(true);
+        setIsPaused(false);
         setIsCompleted(false);
         setScore(0);
         currentScoreRef.current = 0; // Reset score ref
@@ -403,51 +527,54 @@ export default function BreathingPracticePage() {
         setBreathAccuracy(0);
         setCurrentPhase("inhale");
         setCycleCount(0);
-        setPhaseTimer(0);
-        setLastScoreTime(0);
+        setPhaseTimer(4); // Start with 4 seconds for inhale phase
+        lastScoreTimeRef.current = 0;
+        setPausedAt(0);
+        setRemainingTime(0);
+        isRunningRef.current = true;
+        breathAccuracyHistoryRef.current = []; // Reset breath accuracy history
 
         console.log(
           "States set, starting audio analysis and breathing cycle..."
         );
-        analyzeAudio();
 
-        // Use setTimeout to ensure states are properly set before starting cycle
+        // Use setTimeout to ensure ALL states are properly set before starting
         setTimeout(() => {
-          // Give starting bonus
-          setScore(50); // Start with 50 points
-          currentScoreRef.current = 50;
           console.log(
-            "STARTING BONUS: 50 points awarded for beginning exercise"
+            "🚀 Starting audio analysis with delay to ensure state sync..."
           );
-
+          analyzeAudio();
           startBreathingCycle();
-        }, 200);
+        }, 300); // Increased delay to ensure state synchronization
       }
-    } else {
-      console.log("Stopping exercise...");
-      // Stop the exercise
-      setIsPlaying(false);
-      setIsRecording(false);
-      setCurrentPhase("inhale");
-      setCycleCount(0);
-      setPhaseTimer(0);
-      setAudioLevel(0);
+    } else if (isPaused) {
+      // Resume exercise
+      console.log("Resuming exercise...");
+      setIsPaused(false);
+      setIsRecording(true);
+      isRunningRef.current = true;
+      analyzeAudio();
 
-      // Clean up audio resources
+      // Restart the timer interval from where it was paused
+      console.log("Restarting timer interval from pause...");
+      startBreathingCycleFromPause();
+    } else {
+      // Pause exercise
+      console.log("Pausing exercise...");
+      setIsPaused(true);
+      setIsRecording(false);
+      isRunningRef.current = false;
+      setPausedAt(Date.now());
+      setRemainingTime(phaseTimer);
+
+      // Pause audio analysis but keep audio context alive
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      if (phaseIntervalRef.current) {
-        clearInterval(phaseIntervalRef.current);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
+
+      // Clear all running intervals
+      allIntervalsRef.current.forEach(clearInterval);
+      allIntervalsRef.current = [];
     }
   };
 
@@ -506,21 +633,7 @@ export default function BreathingPracticePage() {
           <h1 className="text-xl font-bold text-gray-800">Deep Hoo</h1>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex">
-            {[1, 2, 3].map((star) => (
-              <div
-                key={star}
-                className={`w-6 h-6 rounded-full border-2 ${
-                  score >= star * 3000
-                    ? "bg-yellow-400 border-yellow-400"
-                    : "bg-gray-200 border-gray-300"
-                }`}
-              />
-            ))}
-          </div>
-          <span className="text-2xl font-bold text-gray-800">{score}</span>
-        </div>
+        <div className="w-10"></div>
       </div>
 
       {/* Content */}
@@ -550,41 +663,48 @@ export default function BreathingPracticePage() {
             <div className="text-center">
               {/* Exercise Status */}
               {isPlaying && (
-                <div className="mb-4 p-3 bg-green-50 rounded-xl border border-green-200">
+                <div
+                  className={`mb-4 p-3 rounded-xl border ${
+                    isPaused
+                      ? "bg-yellow-50 border-yellow-200"
+                      : "bg-green-50 border-green-200"
+                  }`}
+                >
                   <div className="flex items-center justify-center gap-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-green-700 font-semibold">
-                      Exercise Running
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        isPaused
+                          ? "bg-yellow-500"
+                          : "bg-green-500 animate-pulse"
+                      }`}
+                    ></div>
+                    <span
+                      className={`font-semibold ${
+                        isPaused ? "text-yellow-700" : "text-green-700"
+                      }`}
+                    >
+                      {isPaused ? "Exercise Paused" : "Exercise Running"}
                     </span>
                   </div>
-                  <p className="text-green-600 text-sm mt-1">
-                    Cycle {cycleCount + 1} of 5 • {Math.ceil(phaseTimer)}s
-                    remaining
+                  <p
+                    className={`text-sm mt-1 ${
+                      isPaused ? "text-yellow-600" : "text-green-600"
+                    }`}
+                  >
+                    {isPaused
+                      ? "Press Resume to continue"
+                      : `Cycle ${cycleCount + 1} of 5 • ${Math.ceil(
+                          phaseTimer
+                        )}s remaining`}
                   </p>
                 </div>
               )}
 
-              {/* Current Score Display */}
-              <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-1">Current Score</p>
-                  <p className="text-4xl font-bold text-green-600">{score}</p>
-                  <p className="text-xs text-gray-500">Target: 10,000</p>
-                </div>
-              </div>
-
               {/* Debug Info */}
               <div className="mb-4 p-2 bg-gray-100 rounded-lg text-xs">
                 <div className="grid grid-cols-2 gap-2 text-gray-600">
-                  <div>Playing: {isPlaying ? "Yes" : "No"}</div>
-                  <div>Recording: {isRecording ? "Yes" : "No"}</div>
                   <div>Phase: {currentPhase}</div>
                   <div>Timer: {phaseTimer.toFixed(1)}s</div>
-                  <div>Cycle: {cycleCount + 1}/5</div>
-                  <div>Audio: {audioLevel.toFixed(1)}%</div>
-                  <div className="col-span-2 font-semibold text-blue-600">
-                    Score Ref: {currentScoreRef.current}
-                  </div>
                 </div>
               </div>
 
@@ -703,20 +823,27 @@ export default function BreathingPracticePage() {
           <button
             onClick={handleStart}
             className={`flex-1 py-4 px-6 rounded-2xl font-semibold text-white transition-all duration-200 ${
-              isPlaying
-                ? "bg-red-500 hover:bg-red-600 shadow-lg"
-                : "bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 shadow-lg"
+              !isPlaying
+                ? "bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 shadow-lg"
+                : isPaused
+                ? "bg-gradient-to-r from-blue-400 to-green-500 hover:from-blue-500 hover:to-green-600 shadow-lg"
+                : "bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 shadow-lg"
             }`}
           >
-            {isPlaying ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                <span>Stop Exercise</span>
-              </div>
-            ) : (
+            {!isPlaying ? (
               <div className="flex items-center justify-center gap-2">
                 <Play className="h-5 w-5" />
                 <span>Start Exercise</span>
+              </div>
+            ) : isPaused ? (
+              <div className="flex items-center justify-center gap-2">
+                <Play className="h-5 w-5" />
+                <span>Resume</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                <Pause className="h-5 w-5" />
+                <span>Pause</span>
               </div>
             )}
           </button>
@@ -763,32 +890,18 @@ export default function BreathingPracticePage() {
               <p className="text-3xl font-bold text-blue-600 mb-2">
                 {finalScore}
               </p>
-
-              {/* Star Rating */}
-              <div className="flex justify-center gap-1 mb-2">
-                {[1, 2, 3].map((star) => (
-                  <div
-                    key={star}
-                    className={`w-6 h-6 rounded-full ${
-                      finalScore >= star * 3000
-                        ? "bg-yellow-400"
-                        : "bg-gray-300"
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {/* Performance Message */}
-              <p className="text-sm text-gray-600">
-                {finalScore >= 9000
-                  ? "Excellent breathing control!"
-                  : finalScore >= 6000
-                  ? "Good breathing technique!"
-                  : finalScore >= 3000
-                  ? "Keep practicing!"
-                  : "Try to follow the breathing pattern more closely"}
-              </p>
             </div>
+
+            {/* Performance Message */}
+            <p className="text-sm text-gray-600">
+              {finalScore >= 9000
+                ? "Excellent breathing control!"
+                : finalScore >= 6000
+                ? "Good breathing technique!"
+                : finalScore >= 3000
+                ? "Keep practicing!"
+                : "Try to follow the breathing pattern more closely"}
+            </p>
 
             <div className="space-y-3">
               <button
@@ -801,7 +914,11 @@ export default function BreathingPracticePage() {
                   setCycleCount(0);
                   setCurrentPhase("inhale");
                   setPhaseTimer(0);
-                  setLastScoreTime(0);
+                  lastScoreTimeRef.current = 0;
+                  setPausedAt(0);
+                  setRemainingTime(0);
+                  setIsPaused(false);
+                  breathAccuracyHistoryRef.current = []; // Reset breath accuracy history
                 }}
                 className="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold transition-colors"
               >
