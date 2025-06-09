@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 
 interface CardProps {
   title: string;
@@ -16,8 +16,8 @@ const Card: React.FC<CardProps> = ({
   description,
   icon,
   onClick,
-  accentColorClass = 'text-indigo-600',
-  className = '',
+  accentColorClass = "text-indigo-600",
+  className = "",
 }) => {
   return (
     <div
@@ -26,12 +26,20 @@ const Card: React.FC<CardProps> = ({
     >
       <div className="flex items-center space-x-4">
         {icon && (
-          <div className={`bg-${accentColorClass.split('-')[1]}-100 p-3 rounded-xl`}>
+          <div
+            className={`bg-${
+              accentColorClass.split("-")[1]
+            }-100 p-3 rounded-xl`}
+          >
             {icon}
           </div>
         )}
         <div>
-          <h3 className={`text-lg font-semibold ${accentColorClass || 'text-gray-700'} mb-1`}>
+          <h3
+            className={`text-lg font-semibold ${
+              accentColorClass || "text-gray-700"
+            } mb-1`}
+          >
             {title}
           </h3>
           {description && (
