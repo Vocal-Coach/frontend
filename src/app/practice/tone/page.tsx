@@ -573,7 +573,7 @@ export default function TonePracticePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-gray-50">
       {/* Header */}
       <div className="flex items-center justify-between p-5 bg-white border-b border-gray-200">
         <Link href="/practice">
@@ -766,32 +766,32 @@ export default function TonePracticePage() {
       </div>
 
       {/* Bottom Controls */}
-      <div className="p-5 bg-white border-t border-gray-200">
+      <div className="p-6 bg-white border-t border-gray-200">
         <div className="flex items-center justify-between max-w-md mx-auto">
           {/* Start/Pause Button */}
           <button
             onClick={handleStart}
-            className={`flex-1 py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200 ${
+            className={`flex-1 py-4 px-6 rounded-2xl font-semibold text-white transition-all duration-200 ${
               !isPlaying
-                ? "bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600"
+                ? "bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 shadow-lg"
                 : isPaused
-                ? "bg-gradient-to-r from-blue-400 to-green-500 hover:from-blue-500 hover:to-green-600"
-                : "bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600"
+                ? "bg-gradient-to-r from-blue-400 to-green-500 hover:from-blue-500 hover:to-green-600 shadow-lg"
+                : "bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 shadow-lg"
             }`}
           >
             {!isPlaying ? (
               <div className="flex items-center justify-center gap-2">
-                <Play className="h-4 w-4" />
-                <span>Start</span>
+                <Play className="h-5 w-5" />
+                <span>Start Exercise</span>
               </div>
             ) : isPaused ? (
               <div className="flex items-center justify-center gap-2">
-                <Play className="h-4 w-4" />
+                <Play className="h-5 w-5" />
                 <span>Resume</span>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
-                <Pause className="h-4 w-4" />
+                <Pause className="h-5 w-5" />
                 <span>Pause</span>
               </div>
             )}
@@ -800,10 +800,22 @@ export default function TonePracticePage() {
           {/* Done Button */}
           <button
             onClick={handleDone}
-            className="py-3 px-6 ml-3 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-semibold transition-colors"
+            className="py-4 px-8 ml-4 bg-black hover:bg-gray-800 text-white rounded-2xl font-semibold transition-colors"
           >
             Done
           </button>
+        </div>
+
+        {/* Progress Dots */}
+        <div className="flex justify-center mt-4 gap-2">
+          {[1, 2, 3, 4, 5].map((dot) => (
+            <div
+              key={dot}
+              className={`w-2 h-2 rounded-full ${
+                dot === 1 ? "bg-gray-800" : "bg-gray-300"
+              }`}
+            />
+          ))}
         </div>
       </div>
 
