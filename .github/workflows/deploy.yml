@@ -35,7 +35,7 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
           source: "."
-          target: "/home/ec2-user/app"
+          target: "/home/${{ secrets.EC2_USER }}/app"
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1
@@ -45,7 +45,7 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
           script: |
-            cd /home/ec2-user/app
+            cd /home/${{ secrets.EC2_USER }}/app
             echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" >> .env.local
             echo "PORT=${{ secrets.PORT || 3000 }}" >> .env.local
             yarn install --production --frozen-lockfile
