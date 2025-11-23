@@ -18,6 +18,62 @@ const PITCH_ACCURACY_THRESHOLD = 85; // 85% 이상 정확도면 음 맞춤으로
 // 진동수 품질 임계값 (실제 구현 시 조정 필요)
 const VIBRATO_QUALITY_THRESHOLD = 70; // 70% 이상이면 좋은 비브라토로 인정
 
+// 신호 에너지 임계값 (무음/잡음 필터링용)
+const MIN_SIGNAL_ENERGY = 0.01;
+
+// 피치 분석 범위 (Hz)
+const MIN_FREQUENCY = 50;
+const MAX_FREQUENCY = 1000;
+
+const calculateSignalEnergy = (samples: Float32Array): number => {
+  if (!samples.length) return 0;
+  let sumSquares = 0;
+  for (let i = 0; i < samples.length; i++) {
+    sumSquares += samples[i] * samples[i];
+  }
+  return Math.sqrt(sumSquares / samples.length);
+};
+
+const detectFundamentalFrequency = (
+  samples: Float32Array,
+  sampleRate: number
+): number | null => {
+  const energy = calculateSignalEnergy(samples);
+  if (energy < MIN_SIGNAL_ENERGY) {
+    return null;
+  }
+
+  const mean = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+  const normalized = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    normalized[i] = samples[i] - mean;
+  }
+
+  const minLag = Math.floor(sampleRate / MAX_FREQUENCY);
+  const maxLag = Math.floor(sampleRate / MIN_FREQUENCY);
+
+  let bestLag = 0;
+  let bestCorrelation = 0;
+
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let correlation = 0;
+    for (let i = 0; i + lag < normalized.length; i++) {
+      correlation += normalized[i] * normalized[i + lag];
+    }
+
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation;
+      bestLag = lag;
+    }
+  }
+
+  if (bestLag === 0 || bestCorrelation <= 0) {
+    return null;
+  }
+
+  return sampleRate / bestLag;
+};
+
 export const getExpectedFrequency = (
   solfege: string,
   gender: 'male' | 'female'
@@ -52,14 +108,48 @@ export const calculatePitchAccuracy = (
 /**
  * 비브라토(떨림) 품질 계산
  * 실제 구현에서는 FFT 등을 사용하여 진동수 특성을 분석해야 함
- * 
+ *
  * @param audioSamples 오디오 샘플 데이터
+ * @param sampleRate 샘플링 레이트 (Hz)
  * @returns 비브라토 품질 (0-100%)
  */
-export const calculateVibratoQuality = (audioSamples: Float32Array): number => {
-  // 실제 구현에서는 FFT 분석 필요
-  // 임시 구현: 무작위 품질 반환 (실제 구현 시 교체 필요)
-  return Math.random() * 100;
+export const calculateVibratoQuality = (
+  audioSamples: Float32Array,
+  sampleRate = 44100
+): number => {
+  const energy = calculateSignalEnergy(audioSamples);
+  if (energy < MIN_SIGNAL_ENERGY) {
+    return 0; // 무음 구간 필터링
+  }
+
+  const frameSize = Math.min(512, audioSamples.length);
+  if (frameSize < 64) return 0;
+
+  const frequencies: number[] = [];
+
+  for (let start = 0; start + frameSize <= audioSamples.length; start += frameSize) {
+    const frame = audioSamples.subarray(start, start + frameSize);
+    const freq = detectFundamentalFrequency(frame, sampleRate);
+    if (freq) {
+      frequencies.push(freq);
+    }
+  }
+
+  if (frequencies.length < 2) {
+    return 0;
+  }
+
+  const meanFrequency =
+    frequencies.reduce((sum, value) => sum + value, 0) / frequencies.length;
+
+  const variance =
+    frequencies.reduce((sum, value) => sum + Math.pow(value - meanFrequency, 2), 0) /
+    frequencies.length;
+  const deviation = Math.sqrt(variance);
+
+  const vibratoDepth = deviation / Math.max(meanFrequency, 1);
+
+  return Math.min(100, vibratoDepth * 200);
 };
 
 /**
@@ -73,19 +163,34 @@ export const calculateVibratoQuality = (audioSamples: Float32Array): number => {
 export const evaluateVocalPerformance = (
   expectedNote: string,
   userAudioData: {
-    frequency: number,
-    samples: Float32Array
+    frequency: number | null,
+    samples: Float32Array,
+    sampleRate?: number
   },
   currentScore: number,
   gender: 'male' | 'female' = 'female'
 ): VocalEvaluationResult => {
+  const signalEnergy = calculateSignalEnergy(userAudioData.samples);
+
+  if (userAudioData.frequency === null || userAudioData.frequency <= 0 || signalEnergy < MIN_SIGNAL_ENERGY) {
+    return {
+      pitchAccuracy: 0,
+      vibratoQuality: 0,
+      totalScore: currentScore,
+      noteHit: false
+    };
+  }
+
   // 1. 피치 정확도 계산
   const expectedFrequency =
     getExpectedFrequency(expectedNote, gender) ?? 440;
   const pitchAccuracy = calculatePitchAccuracy(expectedFrequency, userAudioData.frequency);
-  
+
   // 2. 비브라토 품질 계산
-  const vibratoQuality = calculateVibratoQuality(userAudioData.samples);
+  const vibratoQuality = calculateVibratoQuality(
+    userAudioData.samples,
+    userAudioData.sampleRate
+  );
   
   // 3. 음을 맞췄는지 여부 결정
   const noteHit = pitchAccuracy >= PITCH_ACCURACY_THRESHOLD;
@@ -140,7 +245,7 @@ export const requestMicrophoneAccess = async (): Promise<MediaStream | null> => 
 export const setupPitchDetection = (
   audioContext: AudioContext,
   stream: MediaStream,
-  onPitchDetected: (frequency: number, audioData: Float32Array) => void
+  onPitchDetected: (frequency: number | null, audioData: Float32Array, sampleRate: number) => void
 ): (() => void) => {
   // 마이크 입력을 오디오 컨텍스트에 연결
   const microphone = audioContext.createMediaStreamSource(stream);
@@ -157,18 +262,14 @@ export const setupPitchDetection = (
   // 마이크를 분석기에 연결
   microphone.connect(analyser);
   
-  // 피치 감지 알고리즘 구현 필요
-  // 여기서는 단순화된 방식만 포함
   const detectPitch = () => {
     // 주파수 데이터 가져오기
     analyser.getFloatTimeDomainData(dataArray);
-    
-    // 실제 피치 감지 알고리즘 필요 (예: autocorrelation)
-    // 여기서는 임의 주파수 반환 (실제 구현 필요)
-    const mockFrequency = 440 + (Math.random() * 30 - 15);
-    
+
+    const detectedFrequency = detectFundamentalFrequency(dataArray, audioContext.sampleRate);
+
     // 콜백 호출
-    onPitchDetected(mockFrequency, dataArray);
+    onPitchDetected(detectedFrequency, dataArray, audioContext.sampleRate);
     
     // 다음 프레임에서 다시 감지
     frameId = requestAnimationFrame(detectPitch);
