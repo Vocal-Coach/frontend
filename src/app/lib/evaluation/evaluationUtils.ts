@@ -17,6 +17,55 @@ const PITCH_ACCURACY_THRESHOLD = 85; // 85% 이상 정확도면 음 맞춤으로
 
 // 진동수 품질 임계값 (실제 구현 시 조정 필요)
 const VIBRATO_QUALITY_THRESHOLD = 70; // 70% 이상이면 좋은 비브라토로 인정
+const SILENCE_THRESHOLD = 0.01; // 입력 에너지가 낮을 때 감지 건너뛰기
+
+const autoCorrelate = (
+  buffer: Float32Array,
+  sampleRate: number
+): number | null => {
+  const size = buffer.length;
+
+  // DC 성분 제거를 위한 평균값 계산
+  let mean = 0;
+  for (let i = 0; i < size; i++) {
+    mean += buffer[i];
+  }
+  mean /= size;
+
+  const autocorrelation = new Float32Array(size);
+
+  // 자동 상관 계산
+  for (let lag = 0; lag < size; lag++) {
+    let sum = 0;
+    for (let i = 0; i < size - lag; i++) {
+      const sample = buffer[i] - mean;
+      const delayedSample = buffer[i + lag] - mean;
+      sum += sample * delayedSample;
+    }
+    autocorrelation[lag] = sum;
+  }
+
+  // 초기 감쇠 이후 최대 피크 찾기
+  let lagIndex = 0;
+  while (lagIndex < size - 1 && autocorrelation[lagIndex] > autocorrelation[lagIndex + 1]) {
+    lagIndex++;
+  }
+
+  let peakIndex = -1;
+  let peakValue = -Infinity;
+  for (let i = lagIndex; i < size; i++) {
+    if (autocorrelation[i] > peakValue) {
+      peakValue = autocorrelation[i];
+      peakIndex = i;
+    }
+  }
+
+  if (peakIndex <= 0) {
+    return null;
+  }
+
+  return sampleRate / peakIndex;
+};
 
 export const getExpectedFrequency = (
   solfege: string,
@@ -162,14 +211,22 @@ export const setupPitchDetection = (
   const detectPitch = () => {
     // 주파수 데이터 가져오기
     analyser.getFloatTimeDomainData(dataArray);
-    
-    // 실제 피치 감지 알고리즘 필요 (예: autocorrelation)
-    // 여기서는 임의 주파수 반환 (실제 구현 필요)
-    const mockFrequency = 440 + (Math.random() * 30 - 15);
-    
-    // 콜백 호출
-    onPitchDetected(mockFrequency, dataArray);
-    
+
+    // 입력 에너지 측정 (RMS)
+    let sumSquares = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      sumSquares += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sumSquares / bufferLength);
+
+    if (rms >= SILENCE_THRESHOLD) {
+      const detectedFrequency = autoCorrelate(dataArray, audioContext.sampleRate);
+
+      if (detectedFrequency) {
+        onPitchDetected(detectedFrequency, dataArray);
+      }
+    }
+
     // 다음 프레임에서 다시 감지
     frameId = requestAnimationFrame(detectPitch);
   };
