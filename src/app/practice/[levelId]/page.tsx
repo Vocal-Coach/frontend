@@ -114,7 +114,11 @@ export default function PracticePage({ params }: PracticePageProps) {
   };
   
   // 피치 감지 핸들러
-  const handlePitchDetected = (frequency: number, audioData: Float32Array) => {
+  const handlePitchDetected = (
+    frequency: number | null,
+    audioData: Float32Array,
+    sampleRate: number
+  ) => {
     // 현재 주파수 업데이트
     setCurrentFrequency(frequency);
     
@@ -129,7 +133,13 @@ export default function PracticePage({ params }: PracticePageProps) {
         
         // 500ms마다 평가 (너무 자주 평가하지 않도록)
         if (currentTime - lastEvaluationTime > 500) {
-          evaluateUserVoice(expectedNote, frequency, audioData, selectedRange as 'male' | 'female');
+          evaluateUserVoice(
+            expectedNote,
+            frequency,
+            audioData,
+            selectedRange as 'male' | 'female',
+            sampleRate
+          );
           setLastEvaluationTime(currentTime);
         }
       }
@@ -139,17 +149,28 @@ export default function PracticePage({ params }: PracticePageProps) {
   // 사용자 음성 평가
   const evaluateUserVoice = (
     expectedNote: string,
-    frequency: number,
+    frequency: number | null,
     audioData: Float32Array,
-    gender: 'male' | 'female'
+    gender: 'male' | 'female',
+    sampleRate: number
   ) => {
+    if (frequency === null) return;
+
+    const energy = Math.sqrt(
+      audioData.reduce((sum, value) => sum + value * value, 0) / audioData.length
+    );
+
+    if (!Number.isFinite(energy) || energy < 0.01) {
+      return;
+    }
+
     // 현재 점수
     const currentScore = animationState.score;
-    
+
     // 음성 평가 실행
     const evaluationResult = evaluateVocalPerformance(
       expectedNote,
-      { frequency, samples: audioData },
+      { frequency, samples: audioData, sampleRate },
       currentScore,
       gender
     );
